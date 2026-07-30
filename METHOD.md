@@ -14,12 +14,27 @@ Each invariant below is fixed. Your implementation of it is derived per project.
 ### 1 — The bar is external and inspectable
 
 Judge against something that already exists and a human can look at: photographs, a
-shipped product, recorded footage, a benchmark.
+shipped product, recorded footage, a benchmark. Freeze it so it cannot move between rounds.
 
 *Without it:* the critic scores against its own notion of good, which is a description of
 training data. The build converges to generic.
 
-**Derive:** what real thing does output get compared against, blind?
+There is a permitted weaker form — scoring against a *named* target the model knows well
+("a shipped AAA first-person shooter") with no file to compare against. It works, and it is
+the mode the original technique used. But the critic then shares the builder's prior, blind
+A/B is impossible, and absolute calibration becomes unverifiable. It costs 2 readiness
+points and it is offered third, never first. See `DEFINE.md`.
+
+Naming a vague aspiration is not this. "Make it amazing" points at nothing. "AAA quality,
+from textures to physics" points at a great deal — it is a dense pointer into what the model
+knows about how shipped games are surfaced and tuned, and it measurably improves output.
+Keep that phrasing in the prompt; just do not mistake it for a gate.
+
+Whatever the mode, **calibrate the scale before scoring.** A threshold on an undefined
+scale is not a bar — it means whatever the critic decides it means that round, and it
+drifts upward. Say what each band is, then set the threshold at a band you described.
+
+**Derive:** what does output get compared against, and in which mode?
 
 ### 2 — The builder never grades itself
 

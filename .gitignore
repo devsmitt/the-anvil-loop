@@ -20,6 +20,11 @@ baseline/
 !.anvil/state.json
 # (.anvil/last-gate.json is a scratch convenience; status.mjs reads state.json)
 
+# Reference material is the bar itself. If it moves between rounds, no two scores in the
+# whole run are comparable. Committed on purpose.
+!reference/
+!reference/**
+
 # The anchor set is the drift instrument. If these move, drift becomes undetectable
 # and every rising score afterward is unverifiable. They are committed on purpose.
 !anchors/

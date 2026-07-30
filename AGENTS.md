@@ -1,6 +1,6 @@
 # THE ANVIL LOOP — agent instructions
 
-Framework version 1.1.0
+Framework version 1.3.0
 
 You have been opened in a repo containing this file. Read it fully before acting, then
 read `METHOD.md`. Both are binding.

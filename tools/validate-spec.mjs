@@ -59,7 +59,24 @@ for (const b of spec.bars ?? []) {
   if (!b.command) err(`${at} has no command — it cannot be gated and must move to notes.humanJudges`)
   if (!b.field) warn(`${at} has no field; gate.mjs will look for "value"`)
   if (b.compare && !['>=', '>', '<=', '<', '==', '!='].includes(b.compare)) err(`${at} has invalid compare "${b.compare}"`)
-  if (b.kind === 'subjective' && !b.reference) err(`${at} is subjective but names no external reference — INVARIANT 1`)
+  if (b.kind === 'subjective') {
+    if (!b.reference) err(`${at} is subjective but names no reference — INVARIANT 1`)
+    const MODES = ['artifact', 'sourced', 'model-prior']
+    if (!b.referenceMode) warn(`${at} has no referenceMode; assuming "artifact". Declare one of ${MODES.join(' | ')}.`)
+    else if (!MODES.includes(b.referenceMode)) err(`${at} has invalid referenceMode "${b.referenceMode}" — must be ${MODES.join(' | ')}`)
+    else if (b.referenceMode === 'model-prior') warn(`${at} uses referenceMode "model-prior" — no external artifact, so blind A/B is impossible and the critic shares the builder's prior. Allowed, and it works, but the readiness score must carry the -2 and the human must know absolute calibration is unverifiable.`)
+    else if (b.referenceMode === 'sourced' && !/reference\//.test(String(b.reference))) warn(`${at} is "sourced" but its reference does not point under reference/ — sourced material must be FROZEN and committed, or the bar moves between rounds and no two scores are comparable`)
+    // A threshold on an uncalibrated scale is not a bar. "8/10" means whatever the critic
+    // decides it means that round, which is drift with extra steps.
+    const bands = Object.keys(b.scale ?? {}).filter((k) => /^-?\d+(\.\d+)?$/.test(k))
+    if (!bands.length) err(`${at} has no "scale" — the numbers are uncalibrated, so "${b.compare ?? '>='} ${b.threshold}" means whatever the critic decides it means each round. Describe the threshold band and the two either side of it.`)
+    else if (bands.length < 3) warn(`${at} calibrates only ${bands.length} band(s); describe at least three so the critic can place a build between them`)
+    else if (typeof b.threshold === 'number') {
+      // Band keys are range FLOORS: "60" describes 60 up to the next key.
+      const floors = bands.map(Number).sort((x, y) => x - y)
+      if (b.threshold < floors[0]) warn(`${at} threshold ${b.threshold} sits below every described band (lowest is ${floors[0]}) — the critic has nothing telling it what passing looks like`)
+    }
+  }
 }
 
 /* --- INVARIANT 5: at least one bar is mechanical ------------------------ */

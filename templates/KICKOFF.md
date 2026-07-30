@@ -38,6 +38,17 @@ without waiting between rounds.
 
 Delete whichever of the two you did not use. Never ship both.
 
+## The AMBITION section
+
+Ship it as written. **"AAA quality, from textures to physics" stays literal** — it is a
+dense pointer into what the model knows about how shipped games are surfaced, lit and
+tuned, and builds prompted that way come out visibly better. It is not filler and it is
+not a gate; the gate is `anvil.json`.
+
+Reword it only where AAA would be nonsense — a text roguelike, a terminal tool, a 2D card
+game — and then name the real equivalent: "first-party polish," "shipped-product quality."
+Never soften it to something vague like "high quality." 
+
 ---
 
 ```
@@ -68,6 +79,20 @@ to reply. One increment is not the job; converging the gate is the job.
 Stop only when the gate passes, when you need a decision only I can make, or when you run
 out of room. If you run out of room, leave the state clean: --next set, claim closed or
 left open honestly.
+
+AMBITION
+
+Build this at AAA quality. Utterly perfect, from textures to physics to lighting to
+animation to audio to input feel to anything else you could think of. Every single part
+held to that bar, not just the parts that are interesting to build.
+
+A subsystem nobody reviewed is a subsystem that is worse than everything around it, and it
+is the first thing a player notices. There is no such thing as a detail that is beneath
+this build.
+
+Do not settle for "good enough for a browser game." {{The reference}} is the target, and
+nothing about the medium excuses falling short of it. Do not stop at your first idea of
+what is possible here.
 
 ROLE
 

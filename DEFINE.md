@@ -93,9 +93,74 @@ that out now.
 
 Work through all twelve invariants in `METHOD.md`. These seven carry the most weight:
 
-**1. External bar.** What existing artifact is output compared against, blind? Name it
-specifically enough that an agent can obtain it. "AAA games" is not a bar. "Portal 2
-chamber screenshots and any speedrun VOD" is.
+**1. External bar.** What is output compared against? There are three modes, and they are
+not equally strong. Offer them in this order and record which one you used in
+`anvil.json → bars[].referenceMode`.
+
+| mode | what it is | cost |
+|---|---|---|
+| `artifact` | The human supplies images, footage, or files. Frozen in `reference/`. | none — strongest |
+| `sourced` | You find reference material in Phase 0 and **freeze it** in `reference/`, committed. | none, *if frozen* |
+| `model-prior` | No external file. The critic scores against its own model of the target — "a shipped AAA title in this genre." | −2 readiness |
+
+Ask for `artifact` first — many people have exactly the reference in mind and will hand it
+over if asked. Offer `sourced` second; it is nearly as good and costs them nothing.
+
+**`sourced` only counts if the material is frozen and committed.** A critic that re-fetches
+references each round is comparing against a moving target, and every score across the run
+is incomparable to every other.
+
+**On `model-prior`.** It is allowed, and it demonstrably produces strong results — "AAA
+quality, from textures to physics" is a dense pointer into what the model knows, not an
+empty exhortation like "make it amazing." But be honest about what it costs: the critic and
+the builder are drawing on the *same prior*, so the critic is less independent, and blind
+A/B is impossible because there is nothing to hold the artifact beside. The anchor set still
+detects drift, but it can no longer tell you whether the absolute bar is where you think it
+is.
+
+If the human picks `model-prior`, say plainly that a single reference image would move the
+score two points, and offer once more. Then proceed without arguing.
+
+Whichever mode, be specific about the *target*: "a shipped AAA first-person shooter, lit
+and surfaced to that standard" beats "AAA games."
+
+**Keep the words "AAA quality" in the prompt for anything with a real-time rendered visual
+bar.** They are not filler. "AAA quality, from textures to physics" is a dense pointer into
+a very large amount the model knows about how shipped games are surfaced, lit and tuned,
+and builds prompted that way come out visibly better. Set `{{QUALITY TARGET}}` in
+`KICKOFF.md` to `AAA quality` by default.
+
+Swap it only where it would be nonsense — a text roguelike, a terminal tool, a 2D card game
+— and then name the equivalent: "first-party polish," "shipped-product quality." Never
+replace it with something vague like "high quality.""
+
+**Then calibrate the scale.** A threshold on an uncalibrated scale is not a bar — "8" means
+whatever the critic decides it means that round, and it drifts upward. Write what each band
+*is*, in `anvil.json → bars[].scale`, before anything is scored.
+
+Start from this ladder and adapt the wording to the concept. Do not invent one from nothing:
+
+> **90–100** — indistinguishable from the reference in a blind A/B
+> **76–89** — clearly professional; would pass as a small-studio release
+> **60–75** — a good indie build; clearly not the reference, and a trained eye says why immediately
+> **40–59** — a competent prototype, obviously unfinished
+> **0–39** — placeholder or broken
+
+**Use 0–100, not 1–10.** Resolution matters more than it looks: a round that genuinely
+improves the build often moves a 10-point scale by exactly zero, and `journal.mjs` reads
+three of those in a row as a STALL that isn't one.
+
+Set the threshold at a band you have described, and be realistic about where it belongs.
+75 is a strong, honest target for a from-scratch build with no hand-authored art. 90 means
+you intend to be mistaken for the reference. A run that reports 62 against a calibrated
+ladder has told you something true; a run that reports 8/10 against nothing has not.
+
+**Also settle the asset policy**, because it caps the visual bar and people do not realise
+it until late. Fully procedural — every texture, mesh and sound generated in code — is a
+real achievement and it is also a hard ceiling: the last stretch toward a first-party look
+is hand-authored art, and generating everything in code rules that out by construction. If
+they want the ceiling raised, licensed or CC0 material is the way, logged with its licence.
+Ask, record it in `ARCHITECTURE.md`, and reflect it in where the threshold lands.
 
 **2. Coverage axis.** What varies such that reviewing one instance proves nothing? Levels,
 seeds, routes, loadouts, input devices, difficulty tiers. How many members does a gate
@@ -141,7 +206,8 @@ Start at 10 and deduct:
 
 | deduction | condition |
 |---|---|
-| −3 | No external reference bar that an agent can actually obtain and compare against |
+| −3 | No reference target at all — not even a named genre standard the critic can score against |
+| −2 | `model-prior` reference mode: no external artifact, so no blind A/B and a less independent critic |
 | −3 | Nothing checkable without a human — no solve condition, no measurable success state |
 | −2 | No coverage axis; the product is a single fixed artifact with nothing that varies |
 | −2 | Determinism is unclear or the concept depends on real-time or networked state |
