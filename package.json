@@ -1,0 +1,28 @@
+{
+  "name": "the-anvil-loop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A near-empty repo that turns a concept into something an agent can build autonomously and actually get better at.",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "doctor": "node tools/doctor.mjs",
+    "validate": "node tools/validate-spec.mjs",
+    "verify": "node tools/verify-harness.mjs",
+    "gate": "node tools/gate.mjs",
+    "journal": "node tools/journal.mjs",
+    "status": "node tools/status.mjs"
+  },
+  "_comment": [
+    "The shipped programs (doctor, validate-spec, verify-harness, gate, journal, status)",
+    "use only the Node standard library and need no install. That is deliberate: the",
+    "framework must run the moment the repo is cloned, before any decision about your",
+    "stack has been made.",
+    "",
+    "The seven generated tools WILL need dependencies — a headless browser driver, an image",
+    "decoder, whatever your engine requires. Phase 0 adds them here. Until then this file",
+    "stays empty of dependencies on purpose."
+  ],
+  "dependencies": {},
+  "devDependencies": {}
+}

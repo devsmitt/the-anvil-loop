@@ -1,0 +1,90 @@
+{
+  "$comment": [
+    "THE MACHINE-READABLE CONTRACT. Written at definition, read by tools/gate.mjs.",
+    "Prose in KICKOFF.md explains the run. THIS file decides whether it is finished.",
+    "Every bar needs a command that prints JSON to stdout and a field to read from it.",
+    "A bar with no command is unmeasurable and must not be in the exit condition —",
+    "move it to notes and be honest that a human judges it."
+  ],
+
+  "project": "{{PROJECT}}",
+  "concept": "{{one line}}",
+
+  "coverage": {
+    "$comment": "INVARIANT 4. What varies, such that reviewing one instance proves nothing.",
+    "axis": "{{seed | level | route | loadout | chart | ...}}",
+    "members": 0,
+    "command": "node tools/sweep.mjs --members={{n}} --json",
+    "score": "worst"
+  },
+
+  "determinism": {
+    "$comment": "INVARIANT 3. Named sources of nondeterminism and how each is pinned.",
+    "pinned": ["{{seeded rng}}", "{{fixed timestep}}", "{{in-world clock only}}", "{{fresh process per capture}}"],
+    "probeShot": "{{name of a shot capture.mjs can render — verify-harness captures it twice and demands zero difference}}",
+    "proof": "node tools/verify-harness.mjs"
+  },
+
+  "player": {
+    "$comment": "INVARIANT 5. The critic that plays. Denials are asserted at runtime.",
+    "receives": ["{{rendered frames}}", "{{the real input surface}}"],
+    "denied": ["{{internal state}}", "{{coordinates}}", "{{debug console}}", "{{scene graph}}"],
+    "success": "{{what counts as succeeding, as a predicate a program can check}}",
+    "handicap": {
+      "$comment": "An agent with perfect recall solves what no human could. Hobble it.",
+      "frameMemory": 12,
+      "reactionDelayMs": 250
+    }
+  },
+
+  "anchors": {
+    "$comment": "INVARIANT 10. Frozen artifacts that must not drift when a critic is replaced.",
+    "dir": "anchors",
+    "count": 10,
+    "maxDrift": 0.3
+  },
+
+  "bars": [
+    {
+      "id": "{{beauty}}",
+      "kind": "subjective",
+      "reference": "{{the external thing this is compared against, blind}}",
+      "command": "node tools/critic.mjs --bar={{beauty}} --json",
+      "field": "worst",
+      "compare": ">=",
+      "threshold": 8
+    },
+    {
+      "id": "{{playability}}",
+      "kind": "mechanical",
+      "command": "node tools/player.mjs --sweep --json",
+      "field": "successRate",
+      "compare": ">=",
+      "threshold": 0.9
+    },
+    {
+      "id": "{{budget}}",
+      "kind": "objective",
+      "command": "node tools/budget.mjs --json",
+      "field": "p50fps",
+      "compare": ">=",
+      "threshold": 60
+    }
+  ],
+
+  "coupledCluster": {
+    "$comment": "INVARIANT 7. Worked SEQUENTIALLY by one owner. Naming this is mandatory.",
+    "subsystems": ["{{...}}"],
+    "why": "{{what mutual dependency makes parallel work fail here}}"
+  },
+
+  "phases": [
+    { "id": 0, "name": "harness + spike", "productCode": false, "exit": ["determinism proven", "{{provisional decision}} settled on measured evidence"] },
+    { "id": 1, "name": "{{...}}", "exit": ["{{...}}"] }
+  ],
+
+  "notes": {
+    "$comment": "Things that matter but cannot be gated. Be honest here rather than inventing a number.",
+    "humanJudges": ["{{...}}"]
+  }
+}

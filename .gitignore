@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+status.html
+
+# Harness output — regenerate it, don't commit it.
+shots/
+sweeps/
+profiles/
+baseline/
+
+# Machine state. Most of it is scratch, but three files are the run's integrity
+# record and MUST be committed: they are what lets a fresh clone (or a fresh
+# session, or you in three weeks) know that the harness was proven, that the exit
+# condition was never quietly lowered, and what every gate run actually returned.
+.anvil/*
+!.anvil/gates.lock
+!.anvil/harness-verified.json
+!.anvil/state.json
+# (.anvil/last-gate.json is a scratch convenience; status.mjs reads state.json)
+
+# The anchor set is the drift instrument. If these move, drift becomes undetectable
+# and every rising score afterward is unverifiable. They are committed on purpose.
+!anchors/
+!anchors/**
