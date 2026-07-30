@@ -1,55 +1,106 @@
 # THE ANVIL LOOP
 
-A near-empty repo that turns a game concept into a long autonomous build an agent can
-actually get better at — because it is measured, not just critiqued.
+> **If you are an AI agent reading this repo: your instructions are in [`AGENTS.md`](AGENTS.md).
+> Start there, not here.**
+
+Give a coding agent a game idea. It interviews you for five minutes, hands you a prompt,
+and then builds the game for hours — measuring itself against a real-world standard the
+whole way, with no ability to lower its own bar.
+
+---
 
 ## Start
 
 Paste this into any coding agent that has a shell — Claude Code, Codex, Cursor, anything:
 
-> Clone `https://github.com/devsmitt/the-anvil-loop` into `./my-game`, cd into it, delete the
-> `.git` folder and run `git init`, then follow `AGENTS.md`.
+```
+Clone https://github.com/devsmitt/the-anvil-loop into ./my-game, cd into it,
+delete the .git folder and run git init, then follow AGENTS.md.
+```
 
-The agent clones it, reads `AGENTS.md`, and starts asking you about your concept. It ends
-by handing you a prompt. **Send that prompt back and the run starts.** Stop whenever you
-want — say "continue" and it picks up exactly where it left off.
+Or hit **Use this template** at the top of this page if you want your own repo.
 
-Or hit **Use this template** on GitHub if you want your own repo with clean history.
+## What happens
 
-**Requires** a coding agent with shell and filesystem access, plus Node ≥ 18. Nothing to
-install. Open the cloned folder *itself* as the working directory — not its parent, and
-not nested inside another repo, or the agent instructions won't load.
+**1 — It asks you about your game.** A few minutes, not a form. It develops the idea with
+you and pushes on two things most people never think about: *what real thing should this
+be compared against?* and *what about it can a program check without you?*
 
----
+**2 — It gives you a readiness score.** Out of 10, with itemized deductions and what would
+raise each one. A 6 is a real answer. It tells you which parts of your idea it can measure
+and which parts only you can judge — before you spend the time, not after.
 
-## What it is
+**3 — It hands you a prompt.** Copy it, send it back. That's the moment the run starts.
 
-The known technique for long autonomous builds is: give the agent a real-world quality
-bar, split the work, and put a blind critic between the builder and "done."
+**4 — It builds.** First the measurement rig, before a single line of game code. Then the
+game, in phases, reviewed every round by critics that never see what the builder was
+trying to do. A program decides when it's finished, not the agent.
 
-The hole in it is measurement. A critic with no instrument converges on whatever the
-critic finds easy to say — scores climb, artifacts stand still, and nobody finds out for
-forty rounds because two runs of the same build never produced the same frame in the first
-place.
+**5 — You stop whenever you want.** Hit your usage limits, close the laptop, come back
+tomorrow and say "continue." It picks up mid-task from where it died.
 
-This repo is that technique with an instrument bolted to it, and with the rules enforced
-by programs rather than by asking the agent nicely:
+Along the way it writes `status.html` — open it any time to see which bars pass, how far
+off the failing ones are, and whether anything has gone wrong.
 
-- **`gate.mjs`** reads the exit condition from `anvil.json`, runs each bar's command, and
-  answers "are we done." It fingerprints the thresholds and refuses to run if any of them
-  get easier, until a human approves the change.
-- **`verify-harness.mjs`** proves the measurement rig works before any score is trusted —
-  captures reproduce bit-identically, the sweep reports the worst member not the mean, the
-  playing critic declares what it had access to, and the drift detector fires when a drift
-  is planted.
-- **`validate-spec.mjs`** checks the spec itself, including whether the documents still
-  agree with each other.
-- **`journal.mjs`** writes the numbers into `PROGRESS.md` so they cannot blur into
-  adjectives, and detects when the loop is circling.
-- **`doctor.mjs`** tells any agent, at any point, where it is and what to do next.
+## What you need
 
-No engine, no starter code, no sample game. Those are decisions about your concept, made
-by an agent that has talked to you.
+- **A coding agent with shell and filesystem access.** Claude Code, Codex, Cursor, or
+  similar. This will not work in a plain chat window.
+- **Node 18 or newer.** Nothing to install — the framework itself has zero dependencies.
+- **Time.** Real runs span hours and usually multiple sessions. That's the point; that's
+  also why resume exists.
+
+Open the cloned folder *itself* as your working directory — not its parent, and not nested
+inside another repo, or the agent instructions won't load.
+
+## Why not just prompt an agent directly
+
+You can, and it works better than most people expect. The known technique is: give the
+agent a real-world quality bar, split the work up, and put a blind critic between the
+builder and "done."
+
+The hole in it is measurement. A critic with no instrument drifts toward whatever it finds
+easy to say. Scores climb, the work stands still, and nobody notices for hours — because
+two runs of the same build never produced the same screenshot in the first place, so every
+score was noise from the beginning.
+
+This repo is that technique with an instrument bolted on, and with the rules enforced by
+programs instead of by asking the agent nicely:
+
+- The exit condition lives in a file a program reads. The agent doesn't get a vote on
+  whether it's done.
+- Change a threshold to something easier and the gate **refuses to run** until you
+  personally approve it. The loop cannot lower its own bar.
+- Before any score is trusted, the measurement rig has to prove two identical runs produce
+  identical output — and the drift detector has to catch a fake drift planted to test it.
+- One critic has to actually *play* the game with only what a human gets, and declare what
+  it had access to. A critic that can peek solves everything forever.
+- Progress numbers are written by programs, so "improved the lighting" can't stand in for
+  a result.
+
+## What it won't do
+
+- **Judge whether your game is fun.** It measures what can be measured and tells you
+  plainly what it can't. Some concepts score a 5 for this reason.
+- **Work without a reference.** If there's no real thing to compare against, the loop has
+  nothing to converge toward, and it will say so.
+- **Finish in one sitting.** Ambitious builds take multiple sessions.
+- **Ship you an engine.** There's no starter code here on purpose — the architecture comes
+  from *your* concept, decided by an agent that talked to you.
+
+## What's actually in here
+
+Doctrine, contracts, and six small programs. No engine, no sample game.
+
+| | |
+|---|---|
+| `AGENTS.md` | the operating manual every agent reads |
+| `METHOD.md` | the twelve invariants the loop is bound by |
+| `TOOLS.md` | contracts for the thirteen tools — six ship, seven get generated |
+| `DEFINE.md` | how the opening conversation works |
+| `EXAMPLES.md` | worked derivations across six genres |
+| `tools/` | doctor · validate-spec · verify-harness · gate · journal · status |
+| `templates/` | the shape of what gets written for your project |
 
 ## Credit
 
