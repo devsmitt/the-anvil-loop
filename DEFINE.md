@@ -68,6 +68,20 @@ users almost never volunteer answers to them:
 If you get vague answers, dig once, propose candidates, and then record what you actually
 got. Do not paper over a weak answer with a confident-sounding document.
 
+**Ask which agent they are running in, before you write `KICKOFF.md`.** This decides
+whether the prompt can repeat itself, and a prompt that cannot repeat produces one
+increment and stops — with every re-entrant mechanism in this repo left unused.
+
+- **Claude Code** — the prompt gets a `/loop` prefix. Also ask whether they want
+  **ultracode**: a mode for heavy multi-agent orchestration, more parallel capacity and
+  higher token spend. Recommended here, since the loop fans out critics every round. If
+  they do not know what it is, say so in one line and let them decide. Never enable it
+  silently.
+- **Anything else** — no loop primitive exists, so the prompt keeps its LOOPING section
+  instead, which tells the agent to iterate on its own without pausing between rounds.
+
+`templates/KICKOFF.md` carries both forms. Compose one, delete the other.
+
 ---
 
 ## Derivation order
@@ -185,8 +199,12 @@ node tools/doctor.mjs
 This is the moment the whole conversation exists for. Two parts, in this order.
 
 **First, the prompt.** Print the prompt block from `KICKOFF.md` in full, in a copyable
-form, and say plainly: *send this back to me and the run starts. It runs for a long time.
-Stop whenever you want and say "continue" to pick up where it left off.*
+form, composed for their agent — `/loop` prefix or LOOPING section, never both. Say
+plainly: *send this back to me and the run starts. It runs for a long time. Stop whenever
+you want and say "continue" to pick up where it left off.*
+
+If you used `/loop`, tell them in one line that the prefix is what makes it repeat, so
+they do not helpfully edit it out.
 
 **Then, briefly — five lines, not an essay:**
 

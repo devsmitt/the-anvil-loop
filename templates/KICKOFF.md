@@ -2,14 +2,46 @@
 
 Hand the block below to the human. They send it back to start the run.
 
-It re-fires every iteration, so it cannot say "start at Phase 0" — it reads state, works
-out where it is, does the next increment, records the result. Iteration 1 and iteration 40
-run the same text and do different work.
+It is written to re-fire, so it cannot say "start at Phase 0" — it reads state, works out
+where it is, does the next increment, records the result. Iteration 1 and iteration 40 run
+the same text and do different work.
+
+## Composing it — do this before you print it
+
+**The single most important part of this prompt is what makes it repeat.** Without it the
+agent does one increment and stops, and every re-entrant mechanism in this repo — state,
+resume, stall detection — has nothing to re-enter.
+
+Ask the human which agent they are running in, then compose accordingly.
+
+**Claude Code** — it has a `/loop` skill that re-fires the prompt on its own pacing. Put it
+at the very front of the block:
+
+```
+/loop Build {{PROJECT}}, ...
+```
+
+Also ask whether they want **ultracode** on. It is a Claude Code mode for heavy multi-agent
+orchestration — more parallel capacity, higher token spend. Recommended for this, because
+the loop fans out critics every round. If yes:
+
+```
+/loop ultracode. Build {{PROJECT}}, ...
+```
+
+If they do not know what ultracode is, say that in one line and let them choose. Do not
+enable it silently.
+
+**Codex, Cursor, or anything else** — there is no loop primitive. Omit the prefix entirely
+and keep the LOOPING section in the body, which instructs the agent to iterate on its own
+without waiting between rounds.
+
+Delete whichever of the two you did not use. Never ship both.
 
 ---
 
 ```
-Build {{PROJECT}}, the {{one-line concept}} specified in this repo. Fan out sub-agents.
+{{LOOP PREFIX — "/loop " or "/loop ultracode. " for Claude Code; nothing for other agents}}Build {{PROJECT}}, the {{one-line concept}} specified in this repo. Fan out sub-agents.
 Run until the gate passes.
 
 STATE — first, every iteration.
@@ -25,6 +57,17 @@ STATE — first, every iteration.
      During Phase 0 skip the gate — it refuses until verify-harness passes, by design.
 
 Never restart a finished phase. Never re-derive a decision PROGRESS.md already records.
+
+LOOPING
+{{KEEP THIS SECTION ONLY IF THERE IS NO /loop PREFIX ABOVE. DELETE IT IF THERE IS.}}
+
+Do not stop after one iteration. The moment you finish closing out, begin the next one —
+doctor, PROGRESS.md, claim, increment, close out — and keep going without waiting for me
+to reply. One increment is not the job; converging the gate is the job.
+
+Stop only when the gate passes, when you need a decision only I can make, or when you run
+out of room. If you run out of room, leave the state clean: --next set, claim closed or
+left open honestly.
 
 ROLE
 

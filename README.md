@@ -104,7 +104,11 @@ Doctrine, contracts, and six small programs. No engine, no sample game.
 
 ## Credit
 
-The blind-critic-against-a-real-bar technique is Matt Shumer's Gauntlet Loop, shown in
+The core idea — hand an agent a real-world bar, split the work, and put a blind critic
+between the builder and "done" — is Matt Shumer's Gauntlet Loop, demonstrated in
 [Claude-of-Duty](https://github.com/mshumer/Claude-of-Duty) and written up
-[here](https://somethingbig.ai/gauntlet-loop). The disagreement encoded here is narrow: a
-critic is not an instrument, and the difference shows up around hour four.
+[here](https://somethingbig.ai/gauntlet-loop). He proved the technique works.
+
+This repo is an attempt to turn that technique into a framework anyone can run on any
+concept: the judging made repeatable, the rules enforced by programs instead of good
+intentions, and the whole thing reduced to a repo you clone and a prompt you send.

@@ -1,12 +1,14 @@
 # THE ANVIL LOOP — agent instructions
 
-Framework version 1.0.0
+Framework version 1.1.0
 
 You have been opened in a repo containing this file. Read it fully before acting, then
 read `METHOD.md`. Both are binding.
 
-This works in any agent or environment. Nothing here depends on slash commands, plugins,
-or a particular harness — only on a shell, a filesystem, and Node ≥ 18.
+This works in any agent with a shell, a filesystem, and Node ≥ 18. The one
+environment-specific thing is how the kickoff prompt repeats itself — Claude Code has a
+`/loop` skill; everything else is told to iterate on its own. That choice is made once,
+during definition.
 
 ## First action, always
 
@@ -36,10 +38,13 @@ prompt they send back to you to start the run. Follow `DEFINE.md` in full. In sh
    them: **what real existing thing is this compared against**, and **what can be checked
    mechanically with no human in the loop**.
 4. Show them the exit condition and the readiness score. Get explicit approval.
-5. Write `anvil.json`, `ARCHITECTURE.md`, `HARNESS.md`, `KICKOFF.md`, `PROGRESS.md` from
+5. **Ask which agent they are running in, and whether to enable ultracode if it is Claude
+   Code.** This decides how `KICKOFF.md` is composed — see `templates/KICKOFF.md`. A
+   prompt with no way to repeat itself does one increment and stops.
+6. Write `anvil.json`, `ARCHITECTURE.md`, `HARNESS.md`, `KICKOFF.md`, `PROGRESS.md` from
    `templates/`.
-6. `node tools/validate-spec.mjs` — fix every ERROR.
-7. `node tools/journal.mjs --phase=0 --next="build the Phase 0 harness tools per TOOLS.md"`
+7. `node tools/validate-spec.mjs` — fix every ERROR.
+8. `node tools/journal.mjs --phase=0 --next="build the Phase 0 harness tools per TOOLS.md"`
 
 **Then hand off.** Print the prompt block from `KICKOFF.md` to the human, in a copyable
 form, and tell them plainly: *send this back to me and the loop starts; it will run for a
@@ -57,8 +62,14 @@ Also tell them, briefly:
 
 # SITUATION 2 — THE HUMAN SENT THE KICKOFF PROMPT
 
-Run it. It re-fires every iteration and is written to be re-entrant — it reads state,
-works out where it is, does the next increment, records the result.
+Run it. It is re-entrant — it reads state, works out where it is, does the next increment,
+records the result.
+
+**Keep going.** If the prompt carries a `/loop` prefix, your harness re-fires it for you.
+If it does not, the prompt's LOOPING section applies: finish closing out and immediately
+begin the next iteration without waiting for the human to reply. One increment is not the
+job — converging the gate is. Stop only when the gate passes, when you need a decision only
+the human can make, or when you run out of room (and then leave the state clean).
 
 ### Every iteration
 

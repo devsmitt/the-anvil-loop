@@ -126,6 +126,20 @@ for (const s of spec.coupledCluster?.subsystems ?? []) {
 if (!/anvil:auto:state/.test(read('PROGRESS.md') ?? ''))
   err('PROGRESS.md has no <!-- anvil:auto:state --> block — journal.mjs cannot write the machine-owned sections and the loop will lose its memory')
 
+/* --- the prompt must be able to repeat itself --------------------------- *
+ * Without a repeat mechanism the agent does one increment and stops, and every
+ * re-entrant part of this repo — state, resume, stall detection — is never used.
+ * ----------------------------------------------------------------------- */
+
+const hasLoopPrefix = /^\s*\/loop\b/m.test(kickoff)
+const hasLoopingSection = /^\s*LOOPING\s*$/m.test(kickoff)
+if (!hasLoopPrefix && !hasLoopingSection)
+  err('KICKOFF.md has no repeat mechanism — no `/loop` prefix and no LOOPING section. The prompt would run one increment and stop. See templates/KICKOFF.md for the two forms.')
+if (hasLoopPrefix && hasLoopingSection)
+  err('KICKOFF.md has BOTH a `/loop` prefix and a LOOPING section. Ship one. `/loop` re-fires the prompt; the LOOPING section tells an agent without `/loop` to iterate itself. Together they double-drive the loop.')
+if (/\{\{[^}]*LOOP[^}]*\}\}/i.test(kickoff))
+  err('KICKOFF.md still contains an unresolved LOOP placeholder — compose the prefix or the section, then delete the instruction comment.')
+
 /* --- honesty check ------------------------------------------------------ */
 
 if (!spec.notes?.humanJudges)
