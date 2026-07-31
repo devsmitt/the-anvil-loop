@@ -1,130 +1,186 @@
-# THE TOOL CONTRACTS
+# INSTRUMENT CONTRACTS
 
-Thirteen tools, fixed names. **Six ship and run on a bare clone** (Node standard library
-only). **Seven you generate** — they touch your engine, so only their names, CLI shape,
-and JSON output are fixed.
+Five programs ship and run on a bare clone. Eight you generate — and **you build each one
+when its reading becomes useful, never in a batch up front.**
 
-Fixed contracts are what let `verify-harness.mjs` check that your harness is real rather
-than decorative.
+A previous version of this framework required seven instruments before the first frame
+existed. Six of them measured things that did not exist yet, and all six needed rewriting
+once they did. That cost more hours than any other single decision here.
 
 ---
 
-## Ships with the repo — do not edit
+## Ships with the repo
 
-Editing one of these to make something pass is the single failure this framework exists
-to prevent.
+Never edit these to make something pass. That is the one action this repo exists to
+prevent.
 
 ### `tools/doctor.mjs`
-Preflight and orientation. Runs on a bare clone: checks Node, checks the framework
-arrived intact, checks every `tools/*.mjs` parses (a killed run leaves truncated files),
-works out the stage, prints the one command to run next.
+Orientation. Runs on a bare clone: environment, framework integrity, truncated files (a
+killed run leaves them), the stage, and **which instrument is worth building now**.
 
-Detects **INTERRUPTED** — an open work claim means the last session was killed mid-task,
-and doctor names the task so you resume there instead of guessing.
+Detects **INTERRUPTED** — an open claim means the last session died mid-task, and doctor
+names the task so you resume there instead of guessing.
 
-Surfaces the warnings that predict a bad run: bars with no command, an empty denial list,
-no coupled cluster, a stalled loop, detected drift.
+### `tools/board.mjs`
+The readout, and the heart of the loop.
 
-### `tools/validate-spec.mjs`
-Checks the spec — the contract the entire run is judged against.
+```
+node tools/board.mjs                          print the readout
+node tools/board.mjs --record --saw="..."     measure, record, check the ratchet
+node tools/board.mjs --calibrate              set the noise floor
+```
 
-Catches: invalid JSON, unfilled `{{slots}}`, bars with no command, subjective bars with no
-external reference, a missing mechanical bar, `coverage.score` that isn't `worst`, an
-empty denial list, an unset handicap, a missing Phase 0, and — the subtle one —
-**documents that disagree with each other**, like a threshold in `KICKOFF.md` that no
-longer matches `anvil.json`.
+Runs the fidelity measure on every active member and every gauge, records the round, and
+names the **target** — the member to work on next, with a verdict:
 
-Run at the end of definition and again inside `verify-harness.mjs`.
+| verdict | meaning | response |
+|---|---|---|
+| `CLIMB` | worst member, moving | take the highest-severity finding |
+| `STUCK` | no improvement in 3+ rounds | change the approach, not the effort |
+| `UNEVEN` | 20+ point spread | a technique that worked elsewhere hasn't been applied here |
+| `CEILING` | all members close together and all short | the build needs a technique it doesn't have |
+
+**`--saw` is required and it is not ceremony.** One line describing what the frame actually
+shows. Every expensive failure in this framework's history was plain in one image and
+invisible in every number.
+
+**`--calibrate` scores the same unchanged build twice** and sets the ratchet noise floor
+from the observed spread. This is the honest reason to spend a round on determinism: a
+reproducible capture narrows the floor, which makes the ratchet sensitive enough to catch
+small regressions. Not a moral rule — a sensitivity dial.
+
+The ratchet is the only thing in this repo that blocks.
+
+### `tools/instruments.mjs`
+Trust, not permission. Reports how much each built instrument can be believed and **does
+not withhold scores** — an unproven reading still counts, it just carries a label.
+
+Weighted toward the failure that has actually cost time: instruments reporting confidently
+while measuring nothing. It checks that the critic cites a calibrated band and a build
+fingerprint, that `perf` is GPU-timed and in motion, that the player is genuinely denied
+and handicapped, and — the one that cost four iterations elsewhere — that the player and
+critic **could see anything at all**.
+
+`--falsify` plants known errors and confirms the detectors fire.
 
 ### `tools/journal.mjs`
-Structured state in `.anvil/state.json`, written only by tools. The blocks between
-`<!-- anvil:auto:* -->` markers in `PROGRESS.md` are regenerated from it every run; edits
-inside those markers are overwritten.
-
-**Agents write prose. Programs write numbers.**
-
-Also computes what nothing else notices: **stall** — three or more gate runs with no
-improvement on any bar. Writes are atomic and backed up, so a kill mid-write cannot take
-the loop's memory with it.
-
-`--begin`/`--end` claim and close work. An open claim is what tells the next session a run
-was killed and where.
+Memory, claims, and the debt ledger.
 
 ```
-node tools/journal.mjs --note="chose WebGL2, 61fps vs 38 at target density"
-node tools/journal.mjs --next="run the spike on both backends"
-node tools/journal.mjs --amend=HARNESS.md --change="added creek shot" --reason="ford was untested"
+node tools/journal.mjs --begin="<task>"   claim work BEFORE starting it
+node tools/journal.mjs --end
+node tools/journal.mjs --next="<the one next action>"
+node tools/journal.mjs --debt="<defect>" --evidence="<how you know>"
 ```
 
-`--amend` refuses to run without a `--reason`. An unexplained amendment is how a run
-drifts.
+`--debt` refuses without `--evidence`: a defect you cannot reproduce when you come back to
+pay it was the same as forgetting it. Writes are atomic with a backup, so a kill mid-write
+cannot take the loop's memory.
 
 ### `tools/status.mjs`
-Renders the run as a self-contained HTML dashboard — bars, gap to threshold, harness
-verification state, gate history, drift, and whether the exit condition was ever changed.
+The dashboard. Scores, sparklines, the ratchet, debt — and **the frames, next to the
+reference**. That last part is the point. A human should never have to ask what it looks
+like.
 
-### `tools/gate.mjs`
-Reads `anvil.json`, runs every bar's command, compares each result to its threshold,
-prints the table, exits non-zero if anything fails.
-
-**The authority on whether the run is finished.** Not your judgement.
-
-It also mechanises Invariant 12: it fingerprints the bars on first run and **refuses to
-run if a threshold got easier, a bar disappeared, or the coverage axis narrowed**, until
-a human runs `--approve-change`. The loop cannot lower its own bar.
-
-Every full run appends itself to `.anvil/state.json` automatically. The loop is not asked
-to record results, so it cannot forget to. (`--bar=<id>` runs are diagnostics and are not
-recorded.)
-
-### `tools/verify-harness.mjs`
-The meta-gate. Proves the seven generated tools satisfy the contracts below before any score
-is trusted, and writes `.anvil/harness-verified.json`, which `gate.mjs` requires.
-
-There is no skip flag.
+### `tools/validate-spec.mjs`
+Checks the spec: unfilled slots, an uncalibrated scale, a missing defining feature, no
+primary member, a reference that isn't frozen on disk, a gauge marked blocking, a prompt
+with no way to repeat, documents that disagree with each other.
 
 ---
 
 ## You generate these — names and I/O are fixed
 
-Each must accept `--json` and print **one JSON object as the last line of stdout**. Human
-output above it is fine and encouraged.
+Fixed contracts are what let `instruments.mjs` tell a real harness from a decorative one.
 
-### `tools/capture.mjs`
-Deterministic capture of one named state.
+Each accepts `--json` and prints **one JSON object as the last line of stdout**. Human
+output above it is fine.
+
+### Round one — you cannot climb without these
+
+#### `tools/capture.mjs`
+```
+node tools/capture.mjs --member=<id> --out=<path>
+```
+Renders one member. Pins whatever sources of nondeterminism you have pinned so far — total
+determinism is not required yet, it is a dial you tighten when you want a sharper ratchet.
+
+#### `tools/critic.mjs`
+Scores one member against the frozen reference, blind.
 
 ```
-node tools/capture.mjs --shot=<name> [--member=<id>] --out=<path>
+node tools/critic.mjs --member=<id> --json
+→ { "score": 64, "band": "60 — good indie build, and here is why not 76",
+    "findings": [ { "severity": 1, "where": "...", "what": "...", "why": "...", "owner": "..." } ],
+    "buildFingerprint": "<hash of src/ at capture time>",
+    "frameStats": { "meanLuminance": 0.31, "dominantSurfaceFraction": 0.42 } }
 ```
 
-Pins every source of nondeterminism listed in `anvil.json → determinism.pinned`. Fresh
-process or fresh page per capture — state leaks forward otherwise (particle age, exposure
-adaptation, temporal accumulation) and two identical runs then differ.
+Four fields carry weight beyond the score:
 
-### `tools/diff.mjs`
-Exact comparison gate.
+- **`band`** — which calibrated band, and why not the one above. A number with no band is
+  an opinion wearing a score's clothes, and it drifts upward every round.
+- **`findings`** — a score with no attributable cause cannot be acted on. Severity-ranked;
+  the lead takes the highest one.
+- **`buildFingerprint`** — a hash of `src/` at capture time. In one run a full sweep was
+  graded from frames belonging to a build that no longer existed; reviewers described a
+  scene that had been deleted hours earlier. Nothing caught it but a human reading the
+  descriptions.
+- **`frameStats`** — so `instruments.mjs` can tell whether the reviewer could see anything.
+  A near-black frame or one flat surface filling the view produces a confident score about
+  nothing.
 
+**Transport:** spawning a nested CLI to read an image fails from inside an agent session
+(`tool_use ids must be unique`, then hangs). Two paths that work:
+
+1. **`--prepare` / collect.** `critic.mjs --prepare` writes one self-contained review
+   request per member; the lead spawns a fresh sub-agent per request — which runs on the
+   human's subscription — and writes verdicts back; `--json` reads them. Bind the verdicts
+   to a fingerprint of the frames reviewed so stale ones cannot be reported.
+2. **Inline base64 over `--input-format stream-json`.** No Read tool, one turn, no
+   filesystem access for the reviewer, and **no filename in the prompt** — a path like
+   `shots/seed_20260805_s012.png` leaks the seed and index into a context that works hard
+   to stay free of world truth.
+
+Never pass the builder's reasoning, changelog, previous scores, or round number.
+
+### Later — each when its reading becomes useful
+
+#### `tools/diff.mjs` — when the ratchet needs to be sharper
 ```
-node tools/diff.mjs <a> <b> --json     → { "differingPixels": 0 }
+node tools/diff.mjs <a> <b> --json  → { "differingPixels": 0 }
 ```
+Exact comparison. Also what lets a change prove it altered nothing it wasn't supposed to.
+For non-visual products, diff whatever the artifact is and report a count.
 
-Exits non-zero if anything moved. This is what lets a change **prove** it altered nothing
-it wasn't supposed to, instead of asserting it. For non-visual products, diff whatever the
-artifact is — audio buffers, state dumps, serialized output — and report a count.
-
-### `tools/sweep.mjs`
-**The primary quality instrument.** Runs the capture set across the coverage axis.
-
+#### `tools/sweep.mjs` — at the Act II notch
 ```
-node tools/sweep.mjs --members=<n> [--shots=a,b,c] --json
-→ { "members": 64, "results": [...], "worst": <id>, "worstScore": <n> }
+node tools/sweep.mjs --members=<n> --json
+→ { "members": 12, "results": [...], "worst": "<id>", "duplicateMembers": 0 }
 ```
+Must report `worst` — the score is the worst member, never the mean. Must report
+`duplicateMembers`: in one run four of eight members framed the same road, which is a
+five-member axis wearing an eight-member label, silently narrowing the coverage the sweep
+exists to provide.
 
-Must report `worst`. Invariant 4 is not satisfied by a mean, and `verify-harness.mjs`
-fails you if `worst` is absent.
+#### `tools/perf.mjs` — as you approach the budget
+```
+node tools/perf.mjs --json
+→ { "p50fps": 61, "p99fps": 34, "gpuTimed": true, "inMotion": true, "runs": 2 }
+```
+Three flags, each standing for a measured disaster:
 
-### `tools/player.mjs`
-**The tool this project lives or dies by.** The critic that plays instead of looking.
+- **`gpuTimed`** — CPU submission time is not frame time. One run reported 1000fps for a
+  174fps scene; another read 0.9ms where the GPU took 16.1ms. Both flattering, both silent,
+  both nearly decided a renderer backwards.
+- **`inMotion`** — a static camera reports a passing number for a build that stutters.
+- **`runs ≥ 2`, fresh processes** — tail latency swung 2.5× between identical runs on the
+  same machine.
+
+#### `tools/player.mjs` — when the artifact is operable
+An **agent**, not a heuristic. One run spent four iterations hand-tuning a pixel navigator
+that plateaued, before concluding what the contract implies: `belief` requires reasoning,
+and a heuristic cannot produce one.
 
 ```
 node tools/player.mjs --once --json
@@ -132,107 +188,58 @@ node tools/player.mjs --sweep --json          → { "successRate": 0.0–1.0, ..
 node tools/player.mjs --report-config --json  → { "frameMemory": n, "reactionDelayMs": n }
 ```
 
-Every episode report must contain:
-
 | field | meaning |
 |---|---|
 | `succeeded` | boolean |
-| `access` | **array of what it actually received.** Asserted against `anvil.json → player.denied` |
+| `access` | **what it actually received.** Asserted against `player.denied` |
 | `stalledAt` | where it got stuck, in terms a human would use |
 | `belief` | what it thought was true when it went wrong |
-| `attribution` | `"build"` \| `"user"` \| `"none"` — was failure the build's fault or an earned mistake? |
+| `attribution` | `"build"` \| `"user"` \| `"none"` |
+| `frameStats` | including `goalPixels` — was the goal ever visible? |
 
-`attribution` is the whole value. A success rate tells you the number; attribution tells
-you whether to fix the build or leave it alone.
+`attribution` is the whole value: a success rate gives you a number, attribution tells you
+whether to fix the build or leave it alone. And `frameStats` exists because a properly
+denied, properly handicapped critic **staring at a wall** returns a confident `0.0` that
+is indistinguishable from a real failure.
 
-Two things keep it honest. The `access` field: the likely corruption is handing this tool
-the game state "for convenience," after which it solves everything forever and the gate is
-permanently green. And the handicap: an agent with unlimited recall solves what no human
-could — `frameMemory` and `reactionDelayMs` come from `anvil.json` and are verified to be
-applied.
+Same transport as the critic.
 
-`orient.mjs`, `solve.mjs`, `drive.mjs` are not alternatives. They are what `player.mjs` is
-called in a write-up. The file is always `player.mjs`.
+#### `tools/solvable.mjs` — when the player starts failing
+A **privileged** probe: flood fill, solver, reachability — whatever answers *is the success
+condition achievable at all?* with full access to internal state.
 
-### `tools/budget.mjs`
-Measures the hard limits under realistic conditions — in motion, under load, at real
-resolution. Reports distribution tails, never means. A static or best-case measurement
-reports a passing number for a failing build.
+The player is denied world data on purpose, which means it **cannot tell "impossible" from
+"I failed."** In one run, four iterations went into tuning a navigator against a level
+where two entire zones were unreachable. A twenty-line flood fill answered it immediately.
 
+#### `tools/anchor.mjs` — once scores have been climbing a while
 ```
-node tools/budget.mjs --json → { "p50fps": 61, "p99fps": 34, "worstFrameMs": 41, "shaderCompilesDuringPlay": 0 }
+node tools/anchor.mjs --json                 → { "driftDetected": false, "drift": 0.1 }
+node tools/anchor.mjs --simulate-drift=<n>   → must report driftDetected: true
 ```
-
-Fields are yours; they must match the `field` paths your bars read in `anvil.json`.
-
-### `tools/anchor.mjs`
-**The drift instrument.** Re-scores the frozen artifacts in `anchors/` with the current
-critic and compares to their original scores.
-
-```
-node tools/anchor.mjs --json                    → { "driftDetected": false, "drift": 0.1, ... }
-node tools/anchor.mjs --simulate-drift=<n>      → must report driftDetected: true
-```
-
-The `--simulate-drift` flag exists so `verify-harness.mjs` can plant a drift and confirm
-you catch it. A drift detector that never fires is worse than none, because it reads as
-reassurance.
-
-If frozen artifacts score **higher** than they originally did, the critic softened. That
-delta is the drift. Rising scores against an unchanged anchor set is instrument failure,
-not progress.
-
-### `tools/critic.mjs`
-Runs the subjective bars — blind comparison against the external reference.
-
-```
-node tools/critic.mjs --bar=<id> --json → { "worst": 7.2, "mean": 8.1, "worstMember": "seed-41", "findings": [...] }
-```
-
-Spawns a **fresh agent per review** that receives the goal, the rules, and the artifact —
-never the builder's reasoning, changelog, or previous scores. Reports the worst member.
-Findings carry a severity so the lead can take the single highest one.
+Re-scores frozen artifacts with the current critic. If they score **higher** than they
+originally did, the critic softened and the recent trend is not real. `--simulate-drift`
+exists so `instruments.mjs --falsify` can confirm it fires — a drift detector that never
+fires reads as reassurance.
 
 ---
 
-## Build order
+## What catches what
 
-Nothing downstream is trustworthy until the tool above it works.
+Each of these traces to a specific failure that cost real hours.
 
-```
-capture → diff → verify determinism → sweep → player → budget → anchor → critic
-```
-
-Run `verify-harness.mjs` at the end of Phase 0 and any time a tool changes. `gate.mjs`
-refuses to run until it has passed.
-
-## How the system holds itself together
-
-Each of these catches a specific way a long run goes wrong. None of them depends on an
-agent choosing to be diligent.
-
-| failure | what catches it |
+| failure | caught by |
 |---|---|
-| Spec is incoherent from the start | `validate-spec.mjs` at define time |
-| Documents drift apart from each other | `validate-spec.mjs` cross-check |
-| Scores are noise because captures aren't reproducible | `verify-harness.mjs` check 2 |
-| The mechanical critic can secretly see everything | `player.access` asserted against the denial list |
-| The critic is too capable to be a fair proxy | handicap, verified at runtime |
-| The drift detector is decorative | planted drift in `verify-harness.mjs` |
-| Critics soften over time | `anchor.mjs` + the drift table |
-| Results go unrecorded | `gate.mjs` appends automatically |
-| `PROGRESS.md` decays into adjectives | `journal.mjs` owns the numeric blocks |
-| The loop circles while reporting progress | stall detection in `journal.mjs` |
-| The loop lowers its own bar | fingerprint lock in `gate.mjs` |
-| A fresh session doesn't know where to resume | `--next` at close-out, surfaced by `doctor.mjs` |
-| A run is killed mid-task and work is lost or repeated | `--begin`/`--end` claims + INTERRUPTED in `doctor.mjs` |
-| A kill corrupts the state file | atomic write + `.bak` recovery in `journal.mjs` |
-
-## The two rules about the shipped files
-
-1. **Do not edit any shipped program — `doctor`, `validate-spec`, `verify-harness`, `gate`,
-   `journal`, `status` — to make something pass.** That is the single action this entire framework exists to prevent. If
-   a gate is wrong, change `anvil.json` and get human sign-off.
-2. **Do not rename the generated tools or change their output shape.** The contracts are
-   what make the harness checkable. A project with `orient.mjs` instead of `player.mjs` is
-   a project whose harness nothing can verify.
+| Rounds pass, artifact unchanged | `roundsSinceImprovement` on the board |
+| Something that worked is now worse | the ratchet |
+| Scores are noise because capture jitters | `--calibrate`, then `diff.mjs` |
+| Frames graded from a build that no longer exists | `buildFingerprint` |
+| The critic or player cannot see anything | `frameStats` |
+| The playing critic can secretly peek | `access` asserted against the denial list |
+| "Impossible" mistaken for "the navigator is weak" | `solvable.mjs` |
+| Framerate off by 18× in the flattering direction | `gpuTimed`, `inMotion`, `runs` |
+| The coverage axis is narrower than it claims | `duplicateMembers` |
+| The critic softens over time | `anchor.mjs` + `--falsify` |
+| A round is recorded without anyone looking | `--saw` |
+| A run killed mid-task loses or repeats work | `--begin` / `--end` |
+| Correctness work derailing the climb | the debt ledger |

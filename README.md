@@ -3,112 +3,111 @@
 > **If you are an AI agent reading this repo: your instructions are in [`AGENTS.md`](AGENTS.md).
 > Start there, not here.**
 
-Give a coding agent a game idea. It interviews you for five minutes, hands you a prompt,
-and then builds the game for hours — measuring itself against a real-world standard the
-whole way, with no ability to lower its own bar.
+Give a coding agent a game idea. It interviews you for a few minutes, hands you a prompt,
+and then builds — every round making the thing look and play closer to a real reference,
+while a board tracks the climb and tells it what to fix next.
 
 ---
 
 ## Start
 
-Paste this into any coding agent that has a shell — Claude Code, Codex, Cursor, anything:
+Paste this into any coding agent with a shell — Claude Code, Codex, Cursor:
 
 ```
 Clone https://github.com/devsmitt/the-anvil-loop into ./my-game, cd into it,
 delete the .git folder and run git init, then follow AGENTS.md.
 ```
 
-Or hit **Use this template** at the top of this page if you want your own repo.
+Or hit **Use this template** at the top of this page.
+
+**Requires** a coding agent with shell and filesystem access and Node ≥ 18. Nothing to
+install. Open the cloned folder *itself* as the working directory.
 
 ## What happens
 
-**1 — It asks you about your game.** A few minutes, not a form. It develops the idea with
-you and pushes on two things most people never think about: *what real thing should this
-be compared against?* and *what about it can a program check without you?*
+**Round one builds the game.** Not a greybox. Not a test harness. Not a plan. The thing —
+with whatever makes it *that* game already in it, as good as one pass can make it.
 
-**2 — It gives you a readiness score.** Out of 10, with itemized deductions and what would
-raise each one. A 6 is a real answer. It tells you which parts of your idea it can measure
-and which parts only you can judge — before you spend the time, not after.
+**Every round after makes it better**, aimed by a board that says which part is worst and
+*why* it's worst: is one area behind because a technique hasn't been applied there yet, or
+is everything stuck against the same ceiling? Those need opposite responses, and knowing
+which is the difference between a productive round and a wasted one.
 
-**3 — It hands you a prompt.** Copy it, send it back. That's the moment the run starts.
+**You watch it in `status.html`** — the frames, next to the reference, with the score
+trend. You should never have to ask what it looks like.
 
-**4 — It builds.** First the measurement rig, before a single line of game code. Then the
-game, in phases, reviewed every round by critics that never see what the builder was
-trying to do. A program decides when it's finished, not the agent.
+**Stop whenever.** Say "continue" and it picks up mid-task from where it died.
 
-**5 — You stop whenever you want.** Hit your usage limits, close the laptop, come back
-tomorrow and say "continue." It picks up mid-task from where it died.
+## The one rule
 
-Along the way it writes `status.html` — open it any time to see which bars pass, how far
-off the failing ones are, and whether anything has gone wrong.
+**A member may never score below its own best.**
 
-## What you need
+That's the entire blocking surface. Everything else this repo measures — framerate,
+playability, determinism, coherence — is a reading on a dashboard. Readings change what
+the loop does next. They never stop it.
 
-- **A coding agent with shell and filesystem access.** Claude Code, Codex, Cursor, or
-  similar. This will not work in a plain chat window.
-- **Node 18 or newer.** Nothing to install — the framework itself has zero dependencies.
-- **Time.** Real runs span hours and usually multiple sessions. That's the point; that's
-  also why resume exists.
+That distinction is the whole design. A gate that fires in round three stops the work that
+matters to service a system that's going to be rebuilt anyway. One run lost three hours
+making a player traverse water that was, at the time, a flat blue ribbon that read as
+asphalt. The bug was real. The priority was insane.
 
-Open the cloned folder *itself* as your working directory — not its parent, and not nested
-inside another repo, or the agent instructions won't load.
+But a loop with *no* memory can't see the one thing that actually needs catching: round 30
+quietly breaking what round 25 had right. So that — and only that — stops everything.
 
-## Why not just prompt an agent directly
+## Why this exists
 
-You can, and it works better than most people expect. The known technique is: give the
-agent a real-world quality bar, split the work up, and put a blind critic between the
-builder and "done."
+There's a known technique for getting long autonomous builds out of a coding agent: give
+it a real quality bar, split the work, put a blind critic between the builder and "done."
+It works, and it produces results that look impossible.
 
-The hole in it is measurement. A critic with no instrument drifts toward whatever it finds
-easy to say. Scores climb, the work stands still, and nobody notices for hours — because
-two runs of the same build never produced the same screenshot in the first place, so every
-score was noise from the beginning.
+What it can't do is tell you where you are, whether you regressed, whether the critic went
+soft, or which of ten things to fix next. This repo adds exactly that — and nothing else,
+because everything else turns out to be a brake.
 
-This repo is that technique with an instrument bolted on, and with the rules enforced by
-programs instead of by asking the agent nicely:
-
-- The exit condition lives in a file a program reads. The agent doesn't get a vote on
-  whether it's done.
-- Change a threshold to something easier and the gate **refuses to run** until you
-  personally approve it. The loop cannot lower its own bar.
-- Before any score is trusted, the measurement rig has to prove two identical runs produce
-  identical output — and the drift detector has to catch a fake drift planted to test it.
-- One critic has to actually *play* the game with only what a human gets, and declare what
-  it had access to. A critic that can peek solves everything forever.
-- Progress numbers are written by programs, so "improved the lighting" can't stand in for
-  a result.
+- **The ratchet** catches the regression a critic-only loop can't see.
+- **A calibrated ladder** means a score is a real number instead of a mood. `62` against
+  described bands says something; `8/10` against nothing does not.
+- **Targeting** reads the score history per area and names what to work on, and whether
+  the problem is uneven work or a global ceiling.
+- **`--saw`** won't record a round until you've opened the frame and said what's in it.
+  Every expensive failure this framework has seen was plain in one image and invisible in
+  every number.
+- **Instruments get built when their reading becomes useful** — two in round one, the rest
+  on demand. Building a harness up front means building six tools to measure something
+  that doesn't exist yet.
+- **Correctness is debt** until the look clears the bar. Logged with evidence, paid later,
+  never lost.
 
 ## What it won't do
 
-- **Judge whether your game is fun.** It measures what can be measured and tells you
-  plainly what it can't. Some concepts score a 5 for this reason.
-- **Work without a reference.** If there's no real thing to compare against, the loop has
-  nothing to converge toward, and it will say so.
-- **Finish in one sitting.** Ambitious builds take multiple sessions.
-- **Ship you an engine.** There's no starter code here on purpose — the architecture comes
-  from *your* concept, decided by an agent that talked to you.
+- **Judge whether your game is fun.** It measures what can be measured and names what it
+  can't.
+- **Work without a reference.** No real thing to converge toward, nothing to climb.
+- **Finish in one sitting.** Real runs span sessions. That's what resume is for.
+- **Ship you an engine.** No starter code on purpose — the architecture comes from *your*
+  concept, decided by an agent that talked to you.
 
-## What's actually in here
-
-Doctrine, contracts, and six small programs. No engine, no sample game.
+## What's in here
 
 | | |
 |---|---|
 | `AGENTS.md` | the operating manual every agent reads |
-| `METHOD.md` | the twelve invariants the loop is bound by |
-| `TOOLS.md` | contracts for the thirteen tools — six ship, seven get generated |
-| `DEFINE.md` | how the opening conversation works |
-| `EXAMPLES.md` | worked derivations across six genres |
-| `tools/` | doctor · validate-spec · verify-harness · gate · journal · status |
+| `METHOD.md` | twelve invariants, and the one rule |
+| `TOOLS.md` | instrument contracts, and when to build each |
+| `DEFINE.md` | the opening conversation |
+| `EXAMPLES.md` | worked derivations across seven genres |
+| `tools/` | doctor · board · instruments · journal · status · validate-spec |
 | `templates/` | the shape of what gets written for your project |
+
+Six programs, Node standard library only, no install. The generated instruments come later
+and they're yours.
 
 ## Credit
 
-The core idea — hand an agent a real-world bar, split the work, and put a blind critic
-between the builder and "done" — is Matt Shumer's Gauntlet Loop, demonstrated in
+The core idea — hand an agent a real-world bar, split the work, put a blind critic between
+the builder and "done" — is Matt Shumer's Gauntlet Loop, shown in
 [Claude-of-Duty](https://github.com/mshumer/Claude-of-Duty) and written up
 [here](https://somethingbig.ai/gauntlet-loop). He proved the technique works.
 
-This repo is an attempt to turn that technique into a framework anyone can run on any
-concept: the judging made repeatable, the rules enforced by programs instead of good
-intentions, and the whole thing reduced to a repo you clone and a prompt you send.
+This repo is an attempt at the next step: keep the climb exactly as fast, and give it
+memory, calibration, and aim.

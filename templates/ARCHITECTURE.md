@@ -1,44 +1,49 @@
-# {{PROJECT}} — engine contract
+# {{PROJECT}} — contract
 
-**Every agent must read this before writing code. It is the only coordination mechanism.**
+**Every agent reads this before writing code.**
 
 ## The concept
 
-{{What this is, in a few paragraphs. What the user does. What the session looks like.
-What it is not. Be specific enough that an agent reading only this document builds the
-right thing — and short enough that it gets read every time.}}
+{{What this is. What the person does. What a session looks like. What it is not.}}
+
+## The defining feature
+
+**{{The one thing that makes this THIS.}}**
+
+It exists in round one, however crudely, and nothing is optimized before it does. If this
+is missing at hour ten, the run has been building something else.
 
 ## Direction
 
-{{The aesthetic, tonal, and feel target. Name the specific real-world reference from the
-external bar. State the non-negotiable characteristics — the things that, if missing,
-mean this is generic instead of this specific thing.}}
+{{The aesthetic and feel target. Name the specific reference. State the non-negotiable
+characteristics — the things whose absence makes this generic instead of this.}}
 
 {{End with a disqualifying test. e.g. "If a frame could be any forest, it is wrong."}}
 
 ## Stack
 
-- {{Engine / renderer / language / build tool.}}
-- {{Dependency policy — what may be added, by whom, under what condition.}}
-- {{Asset policy — what may be sourced, licences, where provenance is logged.}}
-
-{{Mark any decision that Phase 0 will settle by measurement as PROVISIONAL, and say which
-spike settles it. Do not let agents assume a provisional decision.}}
+- {{Engine / renderer / language / build.}}
+- {{Dependency policy.}}
+- **Asset policy:** {{fully procedural, or licensed/CC0 permitted with provenance logged.}}
+  Fully procedural is a real achievement and a hard ceiling — the last stretch toward a
+  first-party look is hand-authored art, and generating everything in code rules that out
+  by construction. Decide knowingly; it caps where the target can sit.
+- **Output shape:** {{single self-contained file, or bundled build.}} Decide now — it
+  changes decisions all the way through. An agent that does not know single-file is the
+  goal will add a runtime fetch on line 4,000 and you find out at the end.
 
 ## Hard rules
 
-{{Rules that make parallel work safe and capture reproducible. Every project needs
-determinism rules; the rest are derived. Typical shape:}}
-
-1. **You own your directory. Never edit files outside it.**
+1. **You own your directory. Never edit outside it.**
 2. **Never import another subsystem's internals.** Reach it at runtime through the
    interface below.
 3. {{Dependency rule.}}
-4. **No unseeded randomness. Anywhere.** {{Name the sanctioned source.}}
+4. **No unseeded randomness.** {{Name the sanctioned source.}}
 5. **No wall-clock time in behaviour or visuals.** {{Name the sanctioned time source.}}
-6. {{Per-frame allocation / resource lifetime rules if relevant.}}
-7. **{{Build command}} must pass and {{capture command}} must produce output after your
-   change.** If you break the boot, nobody else can work.
+6. **Nothing built to measure is thrown away.** The scene you build to take a reading is
+   round one of the product. Promote it; never rebuild it.
+7. **{{Build command}} must pass and {{capture command}} must produce a frame after your
+   change.** If you break the boot, nobody can measure anything.
 
 ## Subsystem interface
 
@@ -46,64 +51,69 @@ determinism rules; the rest are derived. Typical shape:}}
 {{The contract every subsystem implements — lifecycle, update hooks, teardown.}}
 ```
 
-{{What the shared context provides, and the meaning of each field. Call out any field
-that is the *only* sanctioned source of something.}}
+{{What the shared context provides. Call out any field that is the ONLY sanctioned source
+of something.}}
 
-## Ownership map
+## Ownership
 
 | id | directory | owns |
 |---|---|---|
-| {{id}} | {{dir}} | {{responsibilities — be exhaustive, ambiguity here becomes a clobber}} |
+| {{id}} | {{dir}} | {{responsibilities — ambiguity here becomes a clobber}} |
 
-**Upstream:** {{which subsystem decides things the others merely express, if any. State it
-explicitly — downstream subsystems must not invent what upstream decides.}}
+**Upstream:** {{which subsystem decides what the others merely express.}}
 
-**Shared, owned by the lead (do not edit):** {{core, entry point, tools, config}}
+**Shared, owned by the lead:** {{core, entry point, tools, contract documents}}
 
-## Coupled cluster
+## The coupled cluster
 
-{{The subsystems that are mutually dependent and must be worked SEQUENTIALLY by a single
-owner, and why. Naming this is mandatory — Invariant 7 has no meaning until it is filled
-in. If you genuinely have no coupled cluster, say so and justify it.}}
+{{Which subsystems are mutually dependent and must be worked SEQUENTIALLY by one owner,
+and why. Naming this is mandatory. If nothing is coupled, say so and justify it.}}
 
-## Cross-subsystem events
+Everything else fans out freely.
 
-| event | payload | emitted by |
+## Members
+
+The things that get scored. In Act I only **{{primaryMember}}** matters; Act II widens to
+the rest.
+
+| member | what it frames | why it is in the set |
 |---|---|---|
-| {{name}} | {{shape}} | {{owner}} |
+| {{id}} | {{...}} | {{...}} |
 
-If you need an event that is not listed, add a row here in the same commit.
+**Members must be different from each other.** A set where four entries frame the same
+view is a smaller set wearing a bigger label. Include the awkward and badly-lit ones — if
+every member is a view somebody chose because it looked good, the worst-member score stops
+meaning anything.
 
-## Shared vocabulary
-
-{{Any enum or taxonomy that multiple subsystems must agree on.}}
+No debug views. A top-down heightmap is not a member.
 
 ## Quality bars
 
-This project is reviewed against **{{N}}** independent bars. Passing one and failing
-another is a failure.
+### The climb — {{fidelity id}}
 
-### Bar 1 — {{name}}
+{{What it measures. What the reference is. How comparison happens.}}
 
-{{What it measures. What the external reference is. How comparison happens.}}
+Scored on the calibrated ladder in `anvil.json`. Target {{n}}; Act II opens at {{notch}}.
 
-{{Concrete, checkable criteria. Not "looks good" — the specific properties a reviewer
-looks for and can point at.}}
+{{Concrete criteria a reviewer can point at. Not "looks good" — the specific properties.}}
 
-### Bar 2 — {{name}}
+### Gauges
 
-{{As above. At least one bar must be mechanical — measured by a program or a playing
-agent, not by looking.}}
+{{Everything else: performance, playability, coherence, integrity. Advisory. They inform
+the next move; they never stop the loop.}}
 
-### Precedence
+### Where the bars share a root cause
 
-{{When bars conflict, which wins, and why. State it now, not during the loop.}}
+{{Name where two bars would be fixed by the same change. In one prior run, unshaded
+terrain broke beauty AND navigability at once — the playing critic kept re-describing the
+same river because there was no surface information to tell one place from another. The
+framework had assumed those bars would conflict; they had a single cause. Look for that
+here before assuming a trade-off.}}
 
 ## Budget
 
-{{Hard, measurable limits — performance, size, load time, whatever this concept has. State
-the measurement method, because a budget measured the wrong way reports a passing number
-for a failing build.}}
+{{Hard limits, and the measurement method — a budget measured the wrong way reports a
+passing number for a failing build.}}
 
 | | target |
 |---|---|

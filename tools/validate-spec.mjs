@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 /**
- * validate-spec.mjs — checks the definition agent's own output
+ * validate-spec.mjs — check the definition's own output.
  *
- * The definition step writes the spec the entire run is judged against. Nothing checked it.
- * A bar with no command, a threshold with no method, an unfilled {{slot}}, or an
- * ownership map that disagrees with anvil.json all fail silently at define time and
- * surface as confusion at hour nine.
- *
- * Runs at the end of definition and again inside verify-harness.mjs.
+ * The spec is the contract a long autonomous run is judged by. Nothing else checks it.
  *
  *   node tools/validate-spec.mjs [--json]
  */
@@ -18,151 +13,106 @@ const ROOT = process.cwd()
 const JSON_OUT = process.argv.includes('--json')
 const read = (p) => (existsSync(`${ROOT}/${p}`) ? readFileSync(`${ROOT}/${p}`, 'utf8') : null)
 
-const errors = []
-const warns = []
-const err = (m) => errors.push(m)
-const warn = (m) => warns.push(m)
-
-/* --- the five files exist ---------------------------------------------- */
+const errors = []; const warns = []
+const err = (m) => errors.push(m); const warn = (m) => warns.push(m)
 
 let spec = null   // declared before any report() call — report() reads spec?.project
 
-const DOCS = ['anvil.json', 'ARCHITECTURE.md', 'HARNESS.md', 'KICKOFF.md', 'PROGRESS.md']
+const DOCS = ['anvil.json', 'ARCHITECTURE.md', 'KICKOFF.md', 'PROGRESS.md']
 for (const d of DOCS) if (!read(d)) err(`${d} is missing — the definition step did not finish`)
 if (errors.length) { report(); process.exit(1) }
 
 try { spec = JSON.parse(read('anvil.json')) }
 catch (e) { err(`anvil.json is not valid JSON: ${e.message}`); report(); process.exit(1) }
 
-/* --- no unfilled template slots ---------------------------------------- */
-
 for (const d of DOCS) {
-  const text = read(d)
-  const slots = [...new Set((text.match(/\{\{[^}]{1,60}\}\}/g) ?? []))]
+  const slots = [...new Set((read(d).match(/\{\{[^}]{1,60}\}\}/g) ?? []))].filter((s) => s !== '{{member}}')
   if (slots.length) err(`${d} still has ${slots.length} unfilled slot(s): ${slots.slice(0, 6).join(' ')}${slots.length > 6 ? ' …' : ''}`)
 }
-if (JSON.stringify(spec).includes('$comment')) warn('anvil.json still carries $comment keys from the template — harmless, but clean them out')
+if (JSON.stringify(spec).includes('$comment')) warn('anvil.json still carries $comment keys from the template')
 
-/* --- the spec is complete ----------------------------------------------- */
+if (!spec.project) err('no project name')
+if (!spec.concept) warn('no concept line — the dashboard renders blank')
 
-if (!spec.project) err('anvil.json has no project name')
-if (!spec.concept) warn('anvil.json has no concept line — status.mjs will render blank')
+/* --- the defining feature must exist in round one -------------------------- */
+if (!spec.definingFeature)
+  err('no definingFeature — nothing forces the thing that makes this *this* into round one. Runs have reached hour ten with the defining feature untouched.')
 
-if (!Array.isArray(spec.bars) || !spec.bars.length) err('anvil.json declares no bars — there is no exit condition')
-const ids = new Set()
-for (const b of spec.bars ?? []) {
-  const at = `bar "${b.id ?? '(unnamed)'}"`
-  if (!b.id) err('a bar has no id')
-  else if (ids.has(b.id)) err(`duplicate bar id "${b.id}"`)
-  else ids.add(b.id)
-  if (typeof b.threshold !== 'number') err(`${at} has no numeric threshold`)
-  if (!b.command) err(`${at} has no command — it cannot be gated and must move to notes.humanJudges`)
-  if (!b.field) warn(`${at} has no field; gate.mjs will look for "value"`)
-  if (b.compare && !['>=', '>', '<=', '<', '==', '!='].includes(b.compare)) err(`${at} has invalid compare "${b.compare}"`)
-  if (b.kind === 'subjective') {
-    if (!b.reference) err(`${at} is subjective but names no reference — INVARIANT 1`)
-    const MODES = ['artifact', 'sourced', 'model-prior']
-    if (!b.referenceMode) warn(`${at} has no referenceMode; assuming "artifact". Declare one of ${MODES.join(' | ')}.`)
-    else if (!MODES.includes(b.referenceMode)) err(`${at} has invalid referenceMode "${b.referenceMode}" — must be ${MODES.join(' | ')}`)
-    else if (b.referenceMode === 'model-prior') warn(`${at} uses referenceMode "model-prior" — no external artifact, so blind A/B is impossible and the critic shares the builder's prior. Allowed, and it works, but the readiness score must carry the -2 and the human must know absolute calibration is unverifiable.`)
-    else if (b.referenceMode === 'sourced' && !/reference\//.test(String(b.reference))) warn(`${at} is "sourced" but its reference does not point under reference/ — sourced material must be FROZEN and committed, or the bar moves between rounds and no two scores are comparable`)
-    // A threshold on an uncalibrated scale is not a bar. "8/10" means whatever the critic
-    // decides it means that round, which is drift with extra steps.
-    const bands = Object.keys(b.scale ?? {}).filter((k) => /^-?\d+(\.\d+)?$/.test(k))
-    if (!bands.length) err(`${at} has no "scale" — the numbers are uncalibrated, so "${b.compare ?? '>='} ${b.threshold}" means whatever the critic decides it means each round. Describe the threshold band and the two either side of it.`)
-    else if (bands.length < 3) warn(`${at} calibrates only ${bands.length} band(s); describe at least three so the critic can place a build between them`)
-    else if (typeof b.threshold === 'number') {
-      // Band keys are range FLOORS: "60" describes 60 up to the next key.
-      const floors = bands.map(Number).sort((x, y) => x - y)
-      if (b.threshold < floors[0]) warn(`${at} threshold ${b.threshold} sits below every described band (lowest is ${floors[0]}) — the critic has nothing telling it what passing looks like`)
-    }
+/* --- the climb -------------------------------------------------------------- */
+const f = spec.fidelity
+if (!f) err('no fidelity bar — the loop has nothing to climb')
+else {
+  if (!f.command) err('fidelity has no command — nothing can be scored')
+  else if (!/\{\{member\}\}/.test(f.command)) warn('fidelity.command has no {{member}} placeholder — every member will score the same thing')
+  if (typeof f.target !== 'number') err('fidelity.target must be a number')
+  if (typeof f.actNotch !== 'number') warn('no fidelity.actNotch — nothing promotes the run from Act I to Act II')
+  else if (typeof f.target === 'number' && f.actNotch >= f.target) err('actNotch must be below target — it is the point where you stop going deep and start going wide')
+
+  const bands = Object.keys(f.scale ?? {}).filter((k) => /^-?\d+(\.\d+)?$/.test(k))
+  if (!bands.length) err('fidelity has no "scale" — the numbers are uncalibrated, so the target means whatever the critic decides each round, and it drifts upward')
+  else if (bands.length < 3) warn(`only ${bands.length} calibrated band(s); describe at least three so a build can be placed between them`)
+  else if (typeof f.target === 'number') {
+    const floors = bands.map(Number).sort((a, b) => a - b)
+    if (f.target < floors[0]) warn(`target ${f.target} sits below every described band (lowest ${floors[0]})`)
   }
 }
 
-/* --- INVARIANT 5: at least one bar is mechanical ------------------------ */
-
-const mechanical = (spec.bars ?? []).filter((b) => b.kind === 'mechanical' || /player\.mjs/.test(b.command ?? ''))
-if (!mechanical.length) err('no mechanical bar — every bar is judged by looking. INVARIANT 5 requires a critic that PLAYS. If this concept genuinely has none, say so in notes.humanJudges and lower the readiness score.')
-
-/* --- INVARIANT 4: coverage ---------------------------------------------- */
-
-if (!spec.coverage?.axis) err('no coverage axis declared — INVARIANT 4')
-if (!(spec.coverage?.members > 0)) err('coverage.members must be a positive number')
-else if (spec.coverage.members < 4) warn(`coverage axis is only ${spec.coverage.members} member(s) — one bad member will dominate, but a small axis proves little`)
-if (spec.coverage && spec.coverage.score !== 'worst') err('coverage.score must be "worst". INVARIANT 4 is not satisfied by a mean.')
-if (!spec.coverage?.command) err('coverage has no command — sweep cannot be run')
-
-/* --- INVARIANT 3: determinism ------------------------------------------ */
-
-if (!spec.determinism?.pinned?.length) err('determinism.pinned is empty — name every source of nondeterminism and how it is pinned. INVARIANT 3')
-
-/* --- INVARIANT 5: the player is denied things and handicapped ----------- */
-
-if (!spec.player?.denied?.length) err('player.denied is empty — a critic that can see internal state solves everything and its gate is permanently green')
-if (!spec.player?.success) err('player.success is not defined — there is no predicate for "the user succeeded"')
-const h = spec.player?.handicap
-if (!h || (h.frameMemory == null && h.reactionDelayMs == null)) err('player.handicap is unset — an agent with perfect recall solves what no human could. INVARIANT 5.')
-
-/* --- INVARIANT 10: anchors ---------------------------------------------- */
-
-if (!(spec.anchors?.count > 0)) err('anchors.count must be positive — without a frozen set, critic drift is undetectable')
-if (spec.anchors && spec.anchors.maxDrift == null) err('anchors.maxDrift is unset')
-
-/* --- INVARIANT 7: the coupled cluster is named -------------------------- */
-
-if (!spec.coupledCluster?.subsystems?.length) err('coupledCluster.subsystems is empty — INVARIANT 7 has no meaning until this is named. If nothing is coupled, state that in coupledCluster.why and list ["none"].')
-else if (!spec.coupledCluster.why) err('coupledCluster names subsystems but no reason — an unexplained cluster gets ignored under time pressure')
-
-/* --- phases ------------------------------------------------------------- */
-
-const phases = spec.phases ?? []
-if (!phases.length) err('no phases declared')
+/* --- the bar ---------------------------------------------------------------- */
+const MODES = ['artifact', 'sourced', 'model-prior']
+const r = spec.reference
+if (!r?.mode) err('no reference.mode — declare one of ' + MODES.join(' | '))
+else if (!MODES.includes(r.mode)) err(`invalid reference.mode "${r.mode}"`)
 else {
-  const p0 = phases.find((p) => p.id === 0)
-  if (!p0) err('there is no Phase 0 — the harness phase is mandatory')
-  else if (p0.productCode !== false) err('Phase 0 must set "productCode": false. No product code before the harness is proven.')
-  for (const p of phases) if (!p.exit?.length) err(`phase ${p.id} "${p.name ?? ''}" has no exit criteria`)
+  if (!r.target && !r.path) err('reference names neither a target nor a path — there is nothing external to converge toward')
+  if (r.mode === 'model-prior') warn('reference.mode "model-prior" — no external artifact, so blind A/B is impossible and the critic shares the builder\'s prior. Allowed, it works, and the readiness score must carry the -2.')
+  if (r.mode !== 'model-prior' && r.path && !existsSync(`${ROOT}/${r.path}`)) err(`reference.path "${r.path}" does not exist — the bar must be frozen on disk before the first score`)
 }
 
-/* --- the documents agree with each other -------------------------------- */
+/* --- depth before breadth --------------------------------------------------- */
+if (!spec.primaryMember) err('no primaryMember — Act I takes exactly one member to the notch, and this names it')
+else if (Array.isArray(spec.members) && spec.members.length && !spec.members.includes(spec.primaryMember))
+  err(`primaryMember "${spec.primaryMember}" is not in members`)
+if (Array.isArray(spec.members) && spec.members.length === 1) warn('only one member declared — Act II has nothing to widen to')
 
+/* --- gauges must be gauges -------------------------------------------------- */
+for (const g of spec.gauges ?? []) {
+  if (!g.id) err('a gauge has no id')
+  if (g.blocking === true) err(`gauge "${g.id}" is marked blocking — gauges report, they do not stop the loop. The ratchet is the only blocking rule.`)
+  if (g.command && !g.field) warn(`gauge "${g.id}" has no field; "value" will be assumed`)
+}
+if (!(spec.gauges ?? []).length) warn('no gauges declared — nothing but fidelity will ever be measured')
+
+/* --- the player, if there is one -------------------------------------------- */
+if (spec.player) {
+  if (!spec.player.denied?.length) err('player.denied is empty — a critic that can see internal state solves everything and its reading is meaningless')
+  if (!spec.player.success) err('player.success is not defined — there is no predicate for "the user succeeded"')
+  const h = spec.player.handicap
+  if (!h || (h.frameMemory == null && h.reactionDelayMs == null)) err('player.handicap is unset — an agent with perfect recall succeeds where no human could')
+}
+
+/* --- documents agree with each other ---------------------------------------- */
 const arch = read('ARCHITECTURE.md') ?? ''
-const harness = read('HARNESS.md') ?? ''
-const kickoff = read('KICKOFF.md') ?? ''
-
-for (const b of spec.bars ?? []) {
-  if (b.id && !new RegExp(b.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(arch + harness))
-    warn(`bar "${b.id}" is in anvil.json but never mentioned in ARCHITECTURE.md or HARNESS.md — the documents disagree`)
-  if (b.id && typeof b.threshold === 'number' && !kickoff.includes(String(b.threshold)))
-    warn(`threshold ${b.threshold} for "${b.id}" does not appear in KICKOFF.md — the loop prompt and the gate disagree on the target`)
-}
-for (const s of spec.coupledCluster?.subsystems ?? []) {
-  if (s !== 'none' && !arch.toLowerCase().includes(String(s).toLowerCase()))
-    warn(`coupled subsystem "${s}" is not in ARCHITECTURE.md's ownership map`)
-}
+const kick = read('KICKOFF.md') ?? ''
+if (spec.definingFeature && !arch.toLowerCase().includes(String(spec.definingFeature).toLowerCase().slice(0, 14)))
+  warn(`definingFeature "${spec.definingFeature}" is not described in ARCHITECTURE.md`)
+if (spec.primaryMember && !kick.includes(spec.primaryMember))
+  warn(`primaryMember "${spec.primaryMember}" never appears in KICKOFF.md — the prompt and the spec disagree about what Act I climbs`)
+if (typeof f?.target === 'number' && !kick.includes(String(f.target)))
+  warn(`target ${f.target} does not appear in KICKOFF.md`)
 if (!/anvil:auto:state/.test(read('PROGRESS.md') ?? ''))
-  err('PROGRESS.md has no <!-- anvil:auto:state --> block — journal.mjs cannot write the machine-owned sections and the loop will lose its memory')
+  err('PROGRESS.md has no <!-- anvil:auto:state --> block — journal.mjs cannot write it and the loop loses its memory')
 
-/* --- the prompt must be able to repeat itself --------------------------- *
- * Without a repeat mechanism the agent does one increment and stops, and every
- * re-entrant part of this repo — state, resume, stall detection — is never used.
- * ----------------------------------------------------------------------- */
+/* --- the prompt must be able to repeat -------------------------------------- */
+const loopPrefix = /^\s*\/loop\b/m.test(kick)
+const loopSection = /^\s*KEEP GOING\s*$/m.test(kick)
+if (!loopPrefix && !loopSection)
+  err('KICKOFF.md has no repeat mechanism — no `/loop` prefix and no KEEP GOING section. It would run one round and stop.')
+if (loopPrefix && loopSection)
+  err('KICKOFF.md has BOTH a `/loop` prefix and a KEEP GOING section. Ship one.')
 
-const hasLoopPrefix = /^\s*\/loop\b/m.test(kickoff)
-const hasLoopingSection = /^\s*LOOPING\s*$/m.test(kickoff)
-if (!hasLoopPrefix && !hasLoopingSection)
-  err('KICKOFF.md has no repeat mechanism — no `/loop` prefix and no LOOPING section. The prompt would run one increment and stop. See templates/KICKOFF.md for the two forms.')
-if (hasLoopPrefix && hasLoopingSection)
-  err('KICKOFF.md has BOTH a `/loop` prefix and a LOOPING section. Ship one. `/loop` re-fires the prompt; the LOOPING section tells an agent without `/loop` to iterate itself. Together they double-drive the loop.')
-if (/\{\{[^}]*LOOP[^}]*\}\}/i.test(kickoff))
-  err('KICKOFF.md still contains an unresolved LOOP placeholder — compose the prefix or the section, then delete the instruction comment.')
-
-/* --- honesty check ------------------------------------------------------ */
-
+/* --- honesty ----------------------------------------------------------------- */
 if (!spec.notes?.humanJudges)
-  warn('notes.humanJudges is unset. Almost every concept has something the instrument cannot see — say what it is rather than implying full coverage.')
-
-/* ------------------------------------------------------------------------ */
+  warn('notes.humanJudges is unset. Almost every concept has something the instrument cannot see — name it rather than implying full coverage.')
 
 function report() {
   if (JSON_OUT) { console.log(JSON.stringify({ ok: errors.length === 0, errors, warnings: warns }, null, 2)); return }
@@ -170,11 +120,9 @@ function report() {
   for (const e of errors) console.log(`  ERROR  ${e}`)
   for (const w of warns) console.log(`  warn   ${w}`)
   if (!errors.length && !warns.length) console.log('  clean')
-  console.log(
-    errors.length
-      ? `\n  ${errors.length} error(s). The spec is not runnable — fix these before starting the run.\n`
-      : `\n  Spec is valid${warns.length ? ` (${warns.length} warning(s))` : ''}. Ready to run.\n`
-  )
+  console.log(errors.length
+    ? `\n  ${errors.length} error(s). Fix these before the run starts.\n`
+    : `\n  Spec is valid${warns.length ? ` (${warns.length} warning(s))` : ''}. Ready.\n`)
 }
 
 report()

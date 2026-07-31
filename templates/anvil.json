@@ -1,99 +1,95 @@
 {
   "$comment": [
-    "THE MACHINE-READABLE CONTRACT. Written at definition, read by tools/gate.mjs.",
-    "Prose in KICKOFF.md explains the run. THIS file decides whether it is finished.",
-    "Every bar needs a command that prints JSON to stdout and a field to read from it.",
-    "A bar with no command is unmeasurable and must not be in the exit condition —",
-    "move it to notes and be honest that a human judges it."
+    "THE SPEC. Written at definition, read by tools/board.mjs.",
+    "",
+    "One thing here is a rule: the ratchet. A member may never score below its own best.",
+    "Everything else is a reading. Gauges report; they do not stop the loop.",
+    "",
+    "Delete these $comment keys once you have filled it in."
   ],
 
   "project": "{{PROJECT}}",
-  "concept": "{{one line}}",
+  "concept": "{{one line — what the person does}}",
 
-  "coverage": {
-    "$comment": "INVARIANT 4. What varies, such that reviewing one instance proves nothing.",
-    "axis": "{{seed | level | route | loadout | chart | ...}}",
-    "members": 0,
-    "command": "node tools/sweep.mjs --members={{n}} --json",
-    "score": "worst"
+  "definingFeature": "{{the one thing that makes this THIS. It exists in round one, however crudely. A forest game with no trees at hour ten was building something else.}}",
+
+  "act": 1,
+
+  "reference": {
+    "$comment": "The bar. Frozen so it cannot move between rounds. artifact > sourced > model-prior.",
+    "mode": "{{artifact | sourced | model-prior}}",
+    "target": "{{the named target, e.g. 'a shipped AAA first-person shooter, lit and surfaced to that standard'}}",
+    "path": "reference/"
   },
 
-  "determinism": {
-    "$comment": "INVARIANT 3. Named sources of nondeterminism and how each is pinned.",
-    "pinned": ["{{seeded rng}}", "{{fixed timestep}}", "{{in-world clock only}}", "{{fresh process per capture}}"],
-    "probeShot": "{{name of a shot capture.mjs can render — verify-harness captures it twice and demands zero difference}}",
-    "proof": "node tools/verify-harness.mjs"
-  },
+  "primaryMember": "{{the ONE member Act I takes to the notch — pick the shot the concept is sold on}}",
+  "members": ["{{...}}", "{{...}}"],
 
-  "player": {
-    "$comment": "INVARIANT 5. The critic that plays. Denials are asserted at runtime.",
-    "receives": ["{{rendered frames}}", "{{the real input surface}}"],
-    "denied": ["{{internal state}}", "{{coordinates}}", "{{debug console}}", "{{scene graph}}"],
-    "success": "{{what counts as succeeding, as a predicate a program can check}}",
-    "handicap": {
-      "$comment": "An agent with perfect recall solves what no human could. Hobble it.",
-      "frameMemory": 12,
-      "reactionDelayMs": 250
+  "fidelity": {
+    "$comment": "The climb. This is what every round must move.",
+    "id": "beauty",
+    "command": "node tools/critic.mjs --member={{member}} --json",
+    "field": "score",
+    "target": 75,
+    "actNotch": 55,
+    "scale": {
+      "$comment": "Calibrate what the numbers MEAN before scoring anything. 0-100 not 1-10: a round that genuinely improves the build often moves a 10-point scale by zero, which reads as a stall that isn't one. Adapt the wording; do not invent a ladder from nothing.",
+      "90": "indistinguishable from the reference in a blind A/B",
+      "76": "clearly professional — would pass as a small-studio release",
+      "60": "a good indie build; clearly not the reference, and a trained eye says why immediately",
+      "40": "a competent prototype, obviously unfinished",
+      "20": "placeholder or broken"
     }
   },
 
-  "anchors": {
-    "$comment": "INVARIANT 10. Frozen artifacts that must not drift when a critic is replaced.",
-    "dir": "anchors",
-    "count": 10,
-    "maxDrift": 0.3
-  },
-
-  "bars": [
+  "gauges": [
     {
-      "id": "{{beauty}}",
-      "kind": "subjective",
-      "referenceMode": "{{artifact | sourced | model-prior}}",
-      "reference": "{{artifact/sourced: path under reference/ plus what it is. model-prior: the named target, e.g. 'a shipped AAA first-person shooter'}}",
-      "command": "node tools/critic.mjs --bar={{beauty}} --json",
-      "field": "worst",
+      "$comment": "Advisory. Reported every round, never blocking. A gauge earns its keep by changing what you do next.",
+      "id": "perf",
+      "command": "node tools/perf.mjs --json",
+      "field": "p50fps",
       "compare": ">=",
-      "threshold": 75,
-      "scale": {
-        "$comment": "Calibrate what the NUMBERS MEAN before anything is scored. A threshold on an uncalibrated scale is not a bar — it means whatever the critic decides that round, and it drifts upward. 0-100 rather than 1-10 on purpose: a round that genuinely improves things often moves a 10-point scale by zero, which reads as a stall that isn't one. Adapt this wording to the concept; do not invent a ladder from nothing.",
-        "90": "indistinguishable from the reference in a blind A/B",
-        "76": "clearly professional — would pass as a small-studio release",
-        "60": "a good indie build; clearly not the reference, and a trained eye says why immediately",
-        "40": "a competent prototype, obviously unfinished",
-        "20": "placeholder or broken"
-      }
+      "target": 60
     },
     {
-      "id": "{{playability}}",
-      "kind": "mechanical",
+      "id": "playability",
       "command": "node tools/player.mjs --sweep --json",
       "field": "successRate",
       "compare": ">=",
-      "threshold": 0.9
-    },
-    {
-      "id": "{{budget}}",
-      "kind": "objective",
-      "command": "node tools/budget.mjs --json",
-      "field": "p50fps",
-      "compare": ">=",
-      "threshold": 60
+      "target": 0.9
     }
   ],
 
-  "coupledCluster": {
-    "$comment": "INVARIANT 7. Worked SEQUENTIALLY by one owner. Naming this is mandatory.",
+  "coverage": {
+    "$comment": "Act II only. Width tracks quality — 1 member, then a handful, then this.",
+    "command": "node tools/sweep.mjs --members={{n}} --json",
+    "members": 0,
+    "score": "worst"
+  },
+
+  "player": {
+    "$comment": "Built in Act II. Denials are asserted at runtime; the handicap is verified.",
+    "receives": ["rendered frames", "the real input surface"],
+    "denied": ["{{internal state}}", "{{coordinates}}", "{{debug console}}"],
+    "success": "{{what counts as succeeding, as a predicate a program can check}}",
+    "handicap": { "frameMemory": 16, "reactionDelayMs": 220 }
+  },
+
+  "anchors": {
+    "$comment": "Drift detection, once scores have been climbing a while.",
+    "dir": "anchors",
+    "count": 8,
+    "maxDrift": 0.3
+  },
+
+  "coupled": {
+    "$comment": "Subsystems that are secretly one system and must be worked by one owner at a time. Parallel agents there break each other's assumptions while all of them report success.",
     "subsystems": ["{{...}}"],
     "why": "{{what mutual dependency makes parallel work fail here}}"
   },
 
-  "phases": [
-    { "id": 0, "name": "harness + spike", "productCode": false, "exit": ["determinism proven", "{{provisional decision}} settled on measured evidence"] },
-    { "id": 1, "name": "{{...}}", "exit": ["{{...}}"] }
-  ],
-
   "notes": {
-    "$comment": "Things that matter but cannot be gated. Be honest here rather than inventing a number.",
-    "humanJudges": ["{{...}}"]
+    "$comment": "What the instrument cannot see. Be honest here rather than implying full coverage.",
+    "humanJudges": ["{{whether it is fun}}", "{{...}}"]
   }
 }

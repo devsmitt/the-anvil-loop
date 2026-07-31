@@ -1,165 +1,172 @@
-# METHOD — the twelve invariants
+# METHOD
 
-Binding on every project built in this repo, regardless of genre or engine.
-
-**Open-ended about what to build. Prescriptive about how it is judged.** You decide the
-design, the architecture, the stack, the decomposition. You do not decide the verification
-— left free there, an agent skips the expensive parts, because skipping them makes
-everything easier and nothing visibly breaks until it is far too late.
-
-Each invariant below is fixed. Your implementation of it is derived per project.
+Binding on every project built in this repo.
 
 ---
 
-### 1 — The bar is external and inspectable
+## The claim
 
-Judge against something that already exists and a human can look at: photographs, a
-shipped product, recorded footage, a benchmark. Freeze it so it cannot move between rounds.
+A build loop gets better at the thing it measures itself against, and it gets better at
+nothing else. So the loop climbs on **the artifact**, every round, from the first round —
+and the instruments watch the climb without ever standing in front of it.
 
-*Without it:* the critic scores against its own notion of good, which is a description of
-training data. The build converges to generic.
+That second half is what this repo adds. The first half is not optional and not negotiable:
+if a round did not make the artifact better, the round was overhead.
 
-There is a permitted weaker form — scoring against a *named* target the model knows well
-("a shipped AAA first-person shooter") with no file to compare against. It works, and it is
-the mode the original technique used. But the critic then shares the builder's prior, blind
-A/B is impossible, and absolute calibration becomes unverifiable. It costs 2 readiness
-points and it is offered third, never first. See `DEFINE.md`.
+## The one rule
 
-Naming a vague aspiration is not this. "Make it amazing" points at nothing. "AAA quality,
-from textures to physics" points at a great deal — it is a dense pointer into what the model
-knows about how shipped games are surfaced and tuned, and it measurably improves output.
-Keep that phrasing in the prompt; just do not mistake it for a gate.
+**A member may never score below its own best.**
 
-Whatever the mode, **calibrate the scale before scoring.** A threshold on an undefined
-scale is not a bar — it means whatever the critic decides it means that round, and it
-drifts upward. Say what each band is, then set the threshold at a band you described.
+That is the entire blocking surface of this framework. Everything else is a reading.
 
-**Derive:** what does output get compared against, and in which mode?
+It costs nothing while you are climbing — you only meet it going backwards — and it closes
+the one real hole in an unmeasured loop: round 30 quietly breaking something round 25 had
+right, with nobody noticing for six hours.
 
-### 2 — The builder never grades itself
+## Gauges, not gates
 
-Critics get the goal, the rules, and the artifact. Never the builder's reasoning, intent,
-changelog, or previous scores. Different agent, fresh context, every time.
+Every other measurement in this repo reports and does not block. Determinism, framerate,
+playability, coherence, integrity, drift: all of them produce numbers on a board. None of
+them can stop the loop.
 
-*Without it:* the critic grades the effort, and a well-argued commit passes on the
-strength of the argument.
+*Why:* a gate that fires early stops fidelity work to service a system that is going to be
+rebuilt anyway. Runs have lost entire nights to a traversal bug in water that was, at the
+time, a flat blue ribbon. The bug was real. The priority was insane. A gauge would have
+logged it and let the climb continue.
 
-### 3 — Reproducibility before construction
+A gauge earns its keep by changing what you do next. A gate earns its keep by stopping you
+from shipping. You are not shipping in round three.
 
-Before any product code exists, prove two consecutive capture runs are bit-identical.
+## The invariants
 
-Minimum: no wall-clock time in behaviour or visuals, no unseeded randomness, fixed
-simulation step, fixed frame budget, fresh process per capture (state leaks forward
-otherwise), explicit ready signal.
+### 1 — The artifact improves every round
 
-*Without it:* every later score is noise. 7.2 against 6.8 means nothing if the same build
-produces both. You will not find out for forty rounds.
+If a round produced verification, refactoring, or infrastructure and the artifact looks or
+plays exactly the same, that round did not advance the build. Sometimes that is correct.
+Three in a row is not.
 
-**Derive:** what specifically makes two runs identical?
+The board tracks it. `roundsSinceImprovement` is the number to watch.
 
-### 4 — Review the distribution, not the instance
+### 2 — Build the instrument when you need the reading
 
-Whatever varies — levels, seeds, routes, loadouts, resolutions — gates run across a set,
-and you judge the **worst** member. Never the average.
+Not before. Instruments in the order their readings become useful:
 
-*Without it:* one good instance reviews perfectly, and it is the one you keep looking at.
+| build it when | instrument |
+|---|---|
+| round one — you cannot climb what you cannot see or score | `capture`, `critic` |
+| scores get noisy, or the ratchet fires on work you didn't do | `diff` (determinism) |
+| one member reaches the act notch | `sweep` (coverage) |
+| you approach the frame budget | `perf` |
+| the artifact is operable | `player` |
+| the player starts failing | `solvable` |
+| scores climb three rounds running | `anchor` (drift) |
 
-**Derive:** what is the coverage axis, and how many members per gate? Seeds are one
-answer, not the answer.
+*Why:* seven tools before the first frame is six tools built to measure a thing that does
+not exist yet. Every one of them will need rewriting once it does.
 
-### 5 — At least one critic plays
+### 3 — The bar is external, frozen, and calibrated
 
-Looking is not enough for anything interactive. One critic operates the thing with exactly
-the affordances a real user has — rendered frames, real input, no internal state, no
-coordinates, no debug console.
+Judge against something that exists and a human can look at. Freeze it so it cannot move
+between rounds. And **say what the numbers mean before scoring anything** — a threshold on
+an undefined scale means whatever the critic decides that round, and it drifts upward.
 
-It reports success, where it stalled, what it believed when it went wrong, and whether
-failure was **earned by the user or caused by the build**.
+A named target the model knows well ("a shipped AAA first-person shooter") is a permitted
+weaker form. It works. It costs the ability to do blind A/B and it makes absolute
+calibration unverifiable. Offered third, never first.
 
-*Without it:* you optimize a screenshot. The result is beautiful and unplayable and
-nothing in the loop can tell you.
+"AAA quality, from textures to physics" is not vague — it is a dense pointer into what the
+model knows about how shipped work is surfaced and tuned, and it measurably improves
+output. Keep that phrasing. Just don't mistake it for a gate.
 
-**Derive:** what does playing mean here, and what is the success predicate?
+### 4 — Depth before breadth
 
-### 6 — Ownership is absolute
+Take **one** member to the target before widening. A sweep across 64 members of a build
+sitting at 20/100 measures the same badness sixty-four times and tells you nothing you did
+not already know from looking at one.
 
-One owner per directory. Never edit another's. Cross-subsystem access happens at runtime
-through a declared interface, never by importing internals.
+Coverage width tracks quality: 1 member, then a handful, then the full axis. The distribution
+question — *is it good everywhere, or good here* — is only worth asking once something is
+good somewhere.
 
-*Without it:* parallel agents clobber each other and all of them report success.
+### 5 — The defining feature exists in round one
 
-### 7 — Fan out on reviews, serialize on coupled fixes
+The thing that makes this *that* game — the canopy, the portal, the drift — exists, however
+crudely, before anything is optimized. A forest game with no trees at hour ten has been
+building something else.
 
-Critics run in parallel and must not see each other's output. Then take the single
-highest-severity finding, give it to the one directory owner, let it work alone, re-gate.
+### 6 — Nothing built to measure is thrown away
 
-Some subsystems are one system. In 3D rendering: tonemapping, exposure, atmosphere,
-indirect light, material response. Parallel agents there each break the others'
-assumptions while all report success. Identify the cluster at define time.
+The scene you build to measure performance is the most complete thing that will exist for
+hours. It is not scaffolding. It is round one of the product, and it gets promoted, not
+rebuilt.
 
-Genuinely disjoint work fans out freely.
+*This is the single most expensive mistake available in this repo.* A previous version of
+this document called the measurement scene "not product code, nothing here is meant to
+survive." An agent built a genuinely beautiful forest to measure foliage density, wrote
+down a millisecond figure, and deleted it.
 
-### 8 — No report without an artifact
+### 7 — Look at it
 
-A contact sheet, a score, a trace, a player log is a result. "Improved the lighting" is
-not. Reject reports that carry none, including your own.
+Before recording a score, open the frame and say in one line what it actually shows.
+`board.mjs --record` will not accept a round without it.
 
-### 9 — The exit condition is numeric and simultaneous
+*Why:* every failure mode that has cost real time in this framework was visible in a
+single image and invisible in every number — frames graded from a build that no longer
+existed, a creek that read as an asphalt road, a playing critic staring at a wall from 30cm,
+a camera embedded inside geometry. Ten hours of instrumentation could not surface any of
+them. Opening two PNGs surfaced all of them in a minute.
 
-Every bar has a number and a command that produces it. The loop stops when all pass at
-once across the coverage axis — not when most are green, not when gains get small.
+### 8 — The builder never grades itself
 
-*Without it:* stopping becomes a mood.
+Critics get the goal, the rules, the scale, and the artifact. Never the builder's reasoning,
+changelog, or previous scores. Fresh agent, fresh context, every review.
 
-### 10 — A critic that stops finding faults is broken
+### 9 — Score the worst member, and know the spread
 
-Critics drift toward the builder. Scores climb while artifacts stand still.
+Once there is more than one member, the score is the worst one. But the **spread** is the
+diagnosis: one member at 68 and one at 20 is uneven work; everything at 40 is a ceiling.
+Those need opposite responses.
 
-**Mechanism — the anchor set:** freeze early artifacts, re-score them whenever a critic is
-replaced. If historical artifacts score *higher*, the critic softened and that delta is the
-drift. Replace it, re-score the round.
+### 10 — Correctness is debt until fidelity clears
 
-Inverse case: a mechanical critic that suddenly succeeds at everything may be too capable
-to be a fair proxy. Hobble it; do not celebrate.
+Traversal bugs, soft-locks, wedges, physics failures: log them with evidence, do not fix
+them, until the fidelity target is met. They are recorded in the debt ledger and paid in
+Act II.
 
-### 11 — State lives on disk
+**One exception.** A defect that *prevents measurement* is not debt, it is a blocker — if
+the build will not boot, or a member cannot be scored, fix it now. You cannot climb a hill
+you cannot see.
 
-`PROGRESS.md` and `.anvil/state.json` are the memory. Read first, write before finishing,
-hard numbers only.
+### 11 — Distrust the instrument before the build
 
-The kickoff prompt re-fires unchanged. It cannot say "start at phase 0" — it reads state,
-works out where it is, acts. Iteration 1 and iteration 40 run identical text and do
-different work.
+Three times across two full runs, a confident number was wrong and the build was fine: a
+framerate timer reading 1000fps for a 174fps scene, a capture racing the compositor, a
+"nothing changed" claim from a shell command that had silently errored.
 
-Claim work before starting it and close the claim after. An open claim is how the next
-session knows a run was killed mid-task and where.
+When a measurement contradicts something you can see, suspect the measurement. And a
+claim of *absence* — nothing running, nothing changed, no differences — requires a positive
+result, never an empty one.
 
-*Without it:* a session dies and the next re-litigates settled decisions, or silently
-restarts finished work.
+### 12 — State lives on disk
 
-### 12 — Sharpen methods, never soften exit numbers
+`PROGRESS.md` and `.anvil/` are the memory. Claim work before starting it; close the claim
+after. An open claim is how the next session knows a run was killed and where.
 
-Amend architecture, harness, and phase plan as you learn; log every amendment with a
-reason. Weakening an exit number, removing a gate, or narrowing the coverage axis requires
-human sign-off — stop and ask. `gate.mjs` enforces this mechanically.
+---
 
-A system that can lower its own bar will, with an excellent justification ready.
+## Two acts, not phases
+
+**Act I — Climb.** One member. Everything is fidelity. Gauges advisory. Debt logged, not
+paid. Ends when the primary member reaches the act notch.
+
+**Act II — Spread and harden.** Widen the coverage axis. Pay the debt. Turn on the
+mechanical bars. The ratchet now protects every member.
+
+There is no Act 0. Round one builds the artifact.
 
 ---
 
 ## Not prescribed here
 
-Do not go looking for these. They are yours to decide:
-
-- **The design** — what it is, what it feels like, what makes it interesting.
-- **The architecture** — subsystems, ownership, boundaries, data flow.
-- **The stack** — engine, language, dependencies. Decide from measurement where possible;
-  record which decisions were measured and which were judged.
-- **The phases** — only two constraints: Phase 0 is harness and reproducibility with no
-  product code, and coupled work is serialized.
-- **The tool implementations** — names and I/O are fixed in `TOOLS.md`; how they work is
-  derived from the concept.
-- **The numbers** — every threshold comes from the concept and the human.
-
-Examples in `EXAMPLES.md` demonstrate how derivation reasons. They are not options. If you
-find yourself matching a project onto one of them, stop and reason from the concept.
+The design, the architecture, the stack, the decomposition, the numbers. All yours.
+`EXAMPLES.md` demonstrates how derivation reasons; it is not a menu.

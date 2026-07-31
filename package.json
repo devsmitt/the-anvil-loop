@@ -1,27 +1,26 @@
 {
   "name": "the-anvil-loop",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "A near-empty repo that turns a concept into something an agent can build autonomously and actually get better at.",
+  "description": "A loop that climbs on the artifact, and instruments that watch the climb without standing in front of it.",
   "engines": { "node": ">=18" },
   "scripts": {
     "doctor": "node tools/doctor.mjs",
+    "board": "node tools/board.mjs",
+    "instruments": "node tools/instruments.mjs",
     "validate": "node tools/validate-spec.mjs",
-    "verify": "node tools/verify-harness.mjs",
-    "gate": "node tools/gate.mjs",
     "journal": "node tools/journal.mjs",
     "status": "node tools/status.mjs"
   },
   "_comment": [
-    "The shipped programs (doctor, validate-spec, verify-harness, gate, journal, status)",
-    "use only the Node standard library and need no install. That is deliberate: the",
-    "framework must run the moment the repo is cloned, before any decision about your",
-    "stack has been made.",
+    "The six shipped programs use only the Node standard library and need no install.",
+    "The framework must run the moment the repo is cloned, before any decision about",
+    "your stack has been made.",
     "",
-    "The seven generated tools WILL need dependencies — a headless browser driver, an image",
-    "decoder, whatever your engine requires. Phase 0 adds them here. Until then this file",
-    "stays empty of dependencies on purpose."
+    "The generated instruments WILL need dependencies — a headless browser driver, an",
+    "image decoder, whatever your engine requires. They are added here when the",
+    "instrument that needs them is built, which is when its reading becomes useful."
   ],
   "dependencies": {},
   "devDependencies": {}

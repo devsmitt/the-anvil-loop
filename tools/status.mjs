@@ -1,145 +1,133 @@
 #!/usr/bin/env node
 /**
- * status.mjs — the human dashboard
+ * status.mjs — the dashboard.
  *
- * Ships with the Anvil Loop. Stack-agnostic.
- *
- * Reads .anvil/state.json and anvil.json only. It does NOT scrape PROGRESS.md —
- * that file is a rendered view, and parsing a rendered view is how a dashboard ends
- * up showing drift rows as gate results.
+ * Reads .anvil/*.json only. It never scrapes PROGRESS.md — that file is a rendered view,
+ * and parsing a rendered view is how a dashboard ends up showing drift rows as scores.
  *
  *   node tools/status.mjs [--out=status.html]
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 
 const ROOT = process.cwd()
 const out = (process.argv.find((a) => a.startsWith('--out=')) || '--out=status.html').split('=')[1]
 
-if (!existsSync(`${ROOT}/anvil.json`)) {
-  console.error('\n  anvil.json not found — see AGENTS.md, SITUATION 1.\n')
-  process.exit(2)
-}
-
+if (!existsSync(`${ROOT}/anvil.json`)) { console.error('\n  anvil.json not found — see AGENTS.md, SITUATION 1.\n'); process.exit(2) }
 let spec
 try { spec = JSON.parse(readFileSync(`${ROOT}/anvil.json`, 'utf8')) }
-catch (e) { console.error(`\n  anvil.json does not parse: ${e.message}\n  Repair it — do not re-run definition.\n`); process.exit(2) }
+catch (e) { console.error(`\n  anvil.json does not parse: ${e.message}\n`); process.exit(2) }
 
-const readJson = (p) => { try { return JSON.parse(readFileSync(`${ROOT}/${p}`, 'utf8')) } catch { return null } }
+const rj = (p) => { try { return JSON.parse(readFileSync(`${ROOT}/${p}`, 'utf8')) } catch { return null } }
+const state = rj('.anvil/state.json') ?? {}
+const instruments = rj('.anvil/instruments.json')
 
-const state = readJson('.anvil/state.json') ?? {}
-const verified = readJson('.anvil/harness-verified.json')
-const lock = readJson('.anvil/gates.lock')
-
-const history = state.history ?? []
-const last = history.at(-1) ?? null
-const lastDrift = (state.drift ?? []).at(-1) ?? null
-
+const hist = state.history ?? []
+const last = hist.at(-1) ?? null
+const memberIds = [...new Set(hist.flatMap((h) => Object.keys(h.scores ?? {})))]
+const target = spec.fidelity?.target ?? 100
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-const fmt = (n) => (typeof n === 'number' ? (Number.isInteger(n) ? String(n) : n.toFixed(2)) : '—')
+const fmt = (n) => (typeof n === 'number' ? (Number.isInteger(n) ? String(n) : n.toFixed(1)) : '—')
 
-const bars = (spec.bars ?? []).map((b) => {
-  const actual = last?.bars?.[b.id] ?? null
-  const op = b.compare ?? '>='
-  const up = op.startsWith('>')
-  const pass = typeof actual === 'number' && typeof b.threshold === 'number'
-    ? ({ '>=': actual >= b.threshold, '>': actual > b.threshold, '<=': actual <= b.threshold, '<': actual < b.threshold, '==': actual === b.threshold, '!=': actual !== b.threshold }[op] ?? false)
-    : null
-  let pct = null
-  if (typeof actual === 'number' && typeof b.threshold === 'number' && b.threshold !== 0) {
-    pct = Math.max(0, Math.min(100, up ? (actual / b.threshold) * 100 : (b.threshold / actual) * 100))
-  }
-  return { ...b, compare: op, actual, pass, pct }
+// Contact sheet — the frames, next to the reference. This is the part a human reads.
+const shots = (dir) => { try { return readdirSync(`${ROOT}/${dir}`).filter((f) => /\.(png|jpe?g|webp)$/i.test(f)).slice(0, 24) } catch { return [] } }
+const latest = shots('shots').length ? 'shots' : (shots('.anvil/latest').length ? '.anvil/latest' : null)
+const refDir = spec.reference?.path?.replace(/\/$/, '') ?? 'reference'
+const refs = shots(refDir)
+
+const spark = (member) => {
+  const pts = hist.map((h) => h.scores?.[member]).filter((v) => typeof v === 'number')
+  if (pts.length < 2) return ''
+  const W = 150, H = 34, min = 0, max = Math.max(target, ...pts)
+  const d = pts.map((v, i) => `${(i / (pts.length - 1)) * W},${H - ((v - min) / (max - min || 1)) * H}`).join(' ')
+  const ty = H - ((target - min) / (max - min || 1)) * H
+  return `<svg width="${W}" height="${H}" style="overflow:visible">
+    <line x1="0" y1="${ty}" x2="${W}" y2="${ty}" stroke="#3d4450" stroke-dasharray="2 3"/>
+    <polyline points="${d}" fill="none" stroke="#4ade80" stroke-width="2"/></svg>`
+}
+
+const rows = memberIds.map((m) => {
+  const s = last?.scores?.[m]
+  const b = state.best?.[m]
+  const below = typeof s === 'number' && typeof b === 'number' && s < b
+  return { m, s, b, below, pct: typeof s === 'number' ? Math.max(0, Math.min(100, (s / target) * 100)) : 0 }
 })
 
-const passing = bars.filter((b) => b.pass === true).length
-const measured = bars.filter((b) => b.pass !== null).length
-const barIds = bars.map((b) => b.id)
+const openDebt = (state.debt ?? []).filter((d) => !d.paid)
+const worst = rows.filter((r) => typeof r.s === 'number').sort((a, b) => a.s - b.s)[0]
 
 const html = `<!doctype html>
-<meta charset="utf-8"><title>${esc(spec.project ?? 'anvil')} — anvil loop</title>
+<meta charset="utf-8"><title>${esc(spec.project ?? 'anvil')}</title>
 <style>
-  :root{--bg:#0c0d0f;--fg:#e8e6e3;--dim:#7d8590;--line:#1e2126;--pass:#4ade80;--fail:#f87171;--warn:#fbbf24}
-  *{box-sizing:border-box}
-  body{margin:0;padding:48px 32px;background:var(--bg);color:var(--fg);
-       font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
-  .wrap{max-width:880px;margin:0 auto}
-  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
-  .sub{color:var(--dim);margin-bottom:36px}
-  .card{border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin-bottom:18px}
-  .lbl{color:var(--dim);font-size:11px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:12px}
-  .bar{display:grid;grid-template-columns:150px 1fr 116px;gap:14px;align-items:center;padding:9px 0}
-  .bar+.bar{border-top:1px solid var(--line)}
-  .track{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
-  .fill{height:100%;border-radius:3px}
-  .num{text-align:right;font-variant-numeric:tabular-nums}
-  .pass{color:var(--pass)}.fail{color:var(--fail)}.warn{color:var(--warn)}.dim{color:var(--dim)}
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  th{text-align:left;color:var(--dim);font-weight:400;padding:6px 10px 6px 0;border-bottom:1px solid var(--line)}
-  td{padding:6px 10px 6px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
-  .banner{padding:13px 16px;border-radius:8px;margin-bottom:18px;border:1px solid}
-  .b-ok{border-color:#14532d;background:#052e16;color:var(--pass)}
-  .b-no{border-color:#7f1d1d;background:#2a0a0a;color:var(--fail)}
-  .b-warn{border-color:#78350f;background:#2a1a05;color:var(--warn)}
-  .note{color:var(--dim);font-size:12px;margin-top:14px;white-space:pre-wrap}
+ :root{--bg:#0c0d0f;--fg:#e8e6e3;--dim:#7d8590;--line:#1e2126;--ok:#4ade80;--no:#f87171;--warn:#fbbf24}
+ *{box-sizing:border-box}
+ body{margin:0;padding:44px 30px;background:var(--bg);color:var(--fg);font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+ .wrap{max-width:1040px;margin:0 auto}
+ h1{font-size:22px;margin:0 0 2px}.sub{color:var(--dim);margin-bottom:30px}
+ .card{border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+ .lbl{color:var(--dim);font-size:11px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:12px}
+ .row{display:grid;grid-template-columns:130px 1fr 160px 110px;gap:14px;align-items:center;padding:8px 0}
+ .row+.row{border-top:1px solid var(--line)}
+ .track{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+ .fill{height:100%;border-radius:3px;background:var(--ok)}
+ .num{text-align:right;font-variant-numeric:tabular-nums}
+ .dim{color:var(--dim)}.ok{color:var(--ok)}.no{color:var(--no)}.warn{color:var(--warn)}
+ .ban{padding:12px 15px;border-radius:8px;margin-bottom:16px;border:1px solid}
+ .b-no{border-color:#7f1d1d;background:#2a0a0a;color:var(--no)}
+ .b-w{border-color:#78350f;background:#2a1a05;color:var(--warn)}
+ .b-ok{border-color:#14532d;background:#052e16;color:var(--ok)}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
+ .grid img{width:100%;border-radius:6px;border:1px solid var(--line);display:block}
+ .cap{color:var(--dim);font-size:11px;margin-top:3px}
+ table{width:100%;border-collapse:collapse;font-size:12px}
+ th{text-align:left;color:var(--dim);font-weight:400;padding:5px 9px 5px 0;border-bottom:1px solid var(--line)}
+ td{padding:5px 9px 5px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+ .note{color:var(--dim);font-size:12px;margin-top:12px;white-space:pre-wrap}
 </style>
 <div class=wrap>
-  <h1>${esc(spec.project ?? 'untitled')}</h1>
-  <div class=sub>${esc(spec.concept ?? '')}</div>
+ <h1>${esc(spec.project ?? 'untitled')}</h1>
+ <div class=sub>${esc(spec.concept ?? '')} &nbsp;·&nbsp; Act ${esc(state.act ?? 1)} &nbsp;·&nbsp; round ${esc(state.round ?? 0)}</div>
 
-  ${verified
-    ? `<div class="banner b-ok">HARNESS VERIFIED — ${esc(verified.verifiedAt)}. Scores below are trustworthy.</div>`
-    : `<div class="banner b-no">HARNESS NOT VERIFIED — run <b>node tools/verify-harness.mjs</b>. Until it passes, every number below is noise.</div>`}
+ ${rows.some((r) => r.below) ? `<div class="ban b-no"><b>REGRESSION</b> — ${rows.filter((r) => r.below).map((r) => `${esc(r.m)} ${fmt(r.s)} (best ${fmt(r.b)})`).join(', ')}. Something that worked is now worse.</div>` : ''}
+ ${state.inFlight ? `<div class="ban b-w"><b>IN FLIGHT</b> — "${esc(state.inFlight.task)}" claimed and not closed. If nothing is running, the last session was killed here.</div>` : ''}
+ ${last?.actPromoted ? `<div class="ban b-ok"><b>ACT II</b> — the primary member reached the notch. Widen the axis, start paying debt.</div>` : ''}
 
-  ${state.inFlight ? `<div class="banner b-warn">IN FLIGHT — "${esc(state.inFlight.task)}" claimed ${esc(String(state.inFlight.startedAt).slice(0, 16).replace('T', ' '))} and not closed. If nothing is running, the last session was interrupted.</div>` : ''}
-  ${state.stall?.rounds >= 3 ? `<div class="banner b-warn">STALLED — ${state.stall.rounds} gate runs with no improvement on any bar. The approach needs to change, not the threshold.</div>` : ''}
-  ${lastDrift?.detected ? `<div class="banner b-warn">CRITIC DRIFT — frozen anchors are scoring higher than they originally did. Recent gains are not real.</div>` : ''}
+ ${last?.saw ? `<div class=card><div class=lbl>last round, what it actually showed</div><div style="font-size:15px">${esc(last.saw)}</div></div>` : ''}
 
-  <div class=card>
-    <div class=lbl>phase</div>
-    <div style="font-size:16px">Phase ${esc(state.phase?.id ?? '?')} — ${esc(state.phase?.name ?? 'unknown')} · iteration ${esc(state.iteration ?? 0)}</div>
-    ${state.nextAction ? `<div class=note>NEXT: ${esc(state.nextAction)}</div>` : `<div class=note>No next action recorded.</div>`}
-  </div>
+ <div class=card>
+  <div class=lbl>fidelity — target ${esc(target)}${spec.fidelity?.actNotch && (state.act ?? 1) < 2 ? ` · act notch ${esc(spec.fidelity.actNotch)}` : ''}</div>
+  ${rows.length ? rows.map((r) => `<div class=row>
+    <div>${esc(r.m)}${r.below ? '<div class="no" style="font-size:11px">below best</div>' : ''}</div>
+    <div class=track><div class=fill style="width:${r.pct}%;background:${r.below ? 'var(--no)' : 'var(--ok)'}"></div></div>
+    <div>${spark(r.m)}</div>
+    <div class="num ${r.below ? 'no' : ''}">${fmt(r.s)} <span class=dim>/ ${esc(target)}</span></div>
+   </div>`).join('') : '<div class=dim>No rounds recorded yet.</div>'}
+  ${worst ? `<div class=note>Worst member is <b>${esc(worst.m)}</b> at ${fmt(worst.s)}. The score is the worst one, never the mean.</div>` : ''}
+ </div>
 
-  <div class=card>
-    <div class=lbl>exit condition — ${passing}/${bars.length} passing${measured < bars.length ? `  ·  ${bars.length - measured} not yet measured` : ''}</div>
-    ${bars.map((b) => {
-      const cls = b.pass === true ? 'pass' : b.pass === false ? 'fail' : 'dim'
-      const color = b.pass === true ? 'var(--pass)' : b.pass === false ? 'var(--fail)' : 'var(--line)'
-      return `<div class=bar>
-        <div>${esc(b.id)}<div style="color:var(--dim);font-size:11px">${esc(b.kind ?? '')}</div></div>
-        <div class=track><div class=fill style="width:${b.pct ?? 0}%;background:${color}"></div></div>
-        <div class="num ${cls}">${fmt(b.actual)} <span class=dim>${esc(b.compare)} ${esc(b.threshold)}</span></div>
-      </div>`
-    }).join('')}
-    <div class=note>Scored on the worst member of ${esc(spec.coverage?.members ?? '?')} ${esc(spec.coverage?.axis ?? 'member')}(s), never the mean.</div>
-  </div>
+ ${latest ? `<div class=card><div class=lbl>the build — look at it</div>
+  <div class=grid>${shots(latest).map((f) => `<div><img src="${latest}/${esc(f)}"><div class=cap>${esc(f)}</div></div>`).join('')}</div></div>` : ''}
 
-  ${history.length ? `<div class=card>
-    <div class=lbl>gate history</div>
-    <table>
-      <tr><th>iteration</th>${barIds.map((id) => `<th>${esc(id)}</th>`).join('')}<th>passing</th><th>worst member</th></tr>
-      ${history.slice(-15).map((h) => `<tr><td>${esc(h.iteration)}</td>${barIds.map((id) => `<td>${fmt(h.bars?.[id])}</td>`).join('')}<td>${esc(h.passing)}/${esc(h.total)}</td><td>${esc(h.worstMember ?? '—')}</td></tr>`).join('')}
-    </table>
-  </div>` : ''}
+ ${refs.length ? `<div class=card><div class=lbl>the bar — ${esc(spec.reference?.mode ?? 'reference')}</div>
+  <div class=grid>${refs.map((f) => `<div><img src="${refDir}/${esc(f)}"><div class=cap>${esc(f)}</div></div>`).join('')}</div></div>` : ''}
 
-  ${(state.drift ?? []).length ? `<div class=card>
-    <div class=lbl>critic drift</div>
-    <table>
-      <tr><th>iteration</th><th>anchors, original</th><th>anchors, now</th><th>drift</th><th>flagged</th></tr>
-      ${state.drift.slice(-10).map((d) => `<tr><td>${esc(d.iteration)}</td><td>${fmt(d.original)}</td><td>${fmt(d.current)}</td><td>${fmt(d.drift)}</td><td class="${d.detected ? 'fail' : 'dim'}">${d.detected ? 'YES' : 'no'}</td></tr>`).join('')}
-    </table>
-  </div>` : ''}
+ ${instruments?.rows?.length ? `<div class=card><div class=lbl>instrument trust — advisory, nothing here blocks</div>
+  <table><tr><th>trust</th><th>instrument</th><th>detail</th></tr>
+  ${instruments.rows.map((r) => `<tr><td class="${r.trust === 'proven' ? 'ok' : r.trust === 'broken' ? 'no' : r.trust === 'absent' ? 'dim' : 'warn'}">${esc(r.trust)}</td><td>${esc(r.tool)}</td><td class=dim>${esc(r.detail)}</td></tr>`).join('')}
+  </table></div>` : ''}
 
-  <div class=card>
-    <div class=lbl>integrity</div>
-    <div>gate fingerprint <span class=dim>${esc(lock?.fingerprint ?? 'unlocked')}</span>${lock?.approvedBy === 'human' ? ' <span class=warn>· exit condition was changed and human-approved</span>' : ''}</div>
-    <div class=note>The loop may sharpen its methods. It may never soften its exit numbers.
-gate.mjs refuses to run if a threshold gets easier, a bar disappears, or the coverage axis narrows.</div>
-  </div>
+ ${openDebt.length ? `<div class=card><div class=lbl>debt — ${openDebt.length} open${(state.act ?? 1) < 2 ? ', paid in Act II' : ', pay it now'}</div>
+  <table><tr><th>#</th><th>round</th><th>defect</th><th>evidence</th></tr>
+  ${openDebt.slice(-12).map((d) => `<tr><td>${esc(d.n)}</td><td>${esc(d.round)}</td><td>${esc(d.defect)}</td><td class=dim>${esc(d.evidence)}</td></tr>`).join('')}
+  </table></div>` : ''}
 
-  <div class=sub style="margin:26px 0 0;font-size:12px">generated by tools/status.mjs · the anvil loop</div>
+ ${hist.length ? `<div class=card><div class=lbl>rounds</div>
+  <table><tr><th>r</th>${memberIds.map((m) => `<th>${esc(m)}</th>`).join('')}<th>saw</th></tr>
+  ${hist.slice(-14).map((h) => `<tr><td>${esc(h.round)}</td>${memberIds.map((m) => `<td>${fmt(h.scores?.[m])}</td>`).join('')}<td class=dim>${esc(String(h.saw ?? '').slice(0, 90))}</td></tr>`).join('')}
+  </table></div>` : ''}
+
+ <div class=sub style="margin:22px 0 0;font-size:12px">tools/status.mjs · the anvil loop · the only rule is the ratchet</div>
 </div>`
 
 writeFileSync(`${ROOT}/${out}`, html)
-console.log(`\n  ${out} written — ${passing}/${bars.length} bars passing, harness ${verified ? 'verified' : 'NOT verified'}\n`)
+console.log(`\n  ${out} written — act ${state.act ?? 1}, round ${state.round ?? 0}${rows.some((r) => r.below) ? ', REGRESSION' : ''}\n`)

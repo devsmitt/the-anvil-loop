@@ -1,93 +1,135 @@
 # WORKED DERIVATIONS
 
-**Not options. Do not select one.** These show how the derivation questions in `DEFINE.md`
-get answered differently depending on the concept — the coverage axis changes shape, the
-mechanical critic becomes a solver or a timing analyzer, the coupled cluster moves from
-renderer to simulation. Reason from the concept in front of you.
+**Not options. Do not select one.** These show how the questions in `DEFINE.md` get
+answered differently depending on the concept — the primary member changes shape, the
+defining feature moves from renderer to simulation, the gauges swap places entirely.
 
-Readiness scores vary. One of these is an honest 5, and it ships that way on purpose.
+Two are honest low scores. That is a normal outcome and it ships that way on purpose.
 
-Beauty thresholds are on the 0–100 calibrated ladder in `DEFINE.md` — 75 is a strong target
-for a from-scratch build with no hand-authored art, 90 means you intend to be mistaken for
-the reference.
+Thresholds are on the 0–100 ladder in `DEFINE.md`. 75 is strong for a from-scratch build
+with no hand-authored art; 90 means you intend to be mistaken for the reference.
 
 ---
 
-## A — Spatial puzzle game, portal mechanics
+## A — Old-growth forest, daily generated, first-person
 
 | | |
 |---|---|
-| **Bar** | Portal 2 stills for lighting and material; speedrun VOD for movement feel |
-| **Coverage** | 12 authored chambers × every intended solution path, plus known unintended-solution attempts. Authored game — the distribution is chambers and approaches, not seeds |
-| **Player** | Frames and mouse/key input only, no scene graph, no console. Success: chamber cleared. Also runs adversarially, attempting to break sequence and clip geometry — in this genre an *unintended* solution is a defect and no screenshot shows one |
-| **Determinism** | Fixed physics timestep, scripted input tape replacing live input, seeded particles, fresh page per shot |
-| **Coupled** | Recursive portal rendering + lighting + momentum transfer through a portal. Recursion depth bounds the lighting budget; momentum carry changes what geometry is reachable |
-| **Owners** | `chambers` (upstream), `portals`, `physics`, `render`, `player`, `ui`, `audio` |
-| **Exit** | beauty ≥ 75 blind A/B across 12 chambers · solver clears 12/12 by an intended path · zero unintended solutions in 200 adversarial attempts · p50 ≥ 60fps, p99 ≥ 30 · zero mid-play shader compiles |
-| **Readiness** | 9/10 — −1 aesthetic bar is subjective; the solver gate carries the run |
+| **Defining feature** | the closed canopy. Trunks, ferns, dappled light. Round one has trees or it isn't this game |
+| **Primary member** | `grove` — eye height under old growth, looking down a lane of trunks. The frame the game is sold on |
+| **Members (Act II)** | grove · understory · canopy · creek · ridge · dusk |
+| **Reference** | `artifact` — Hoh rainforest photography, frozen in `reference/` |
+| **Target / notch** | 80 / 58 |
+| **Gauges** | p50 fps ≥ 60 · solve rate ≥ 0.9 · hydrology coherence |
+| **Coupled** | renderer + sky + water + terrain materials |
+| **Debt likely logged in Act I** | shallow-water traversal, footing pops, spawn orientation |
+| **Human judges** | whether being lost feels earned or arbitrary |
+| **Readiness** | 9/10 — −1 the coupled cluster is most of the visual build |
 
-## B — Arcade racer
+**The trap this one sets.** The generator is the product, so seeds feel like the obvious
+axis from round one. They aren't. Sixty-four seeds of a build sitting at 20 measures the
+same badness sixty-four times. One grove, to 58, then widen.
+
+## B — Spatial puzzle game, portal mechanics
 
 | | |
 |---|---|
-| **Bar** | A named shipped arcade racer for camera, speed sensation, drift; track photography for environment |
-| **Coverage** | 6 tracks × 3 vehicle classes × dry/wet = 36. Gate all, score the worst |
-| **Player** | Fixed input tape per track. Reports lap time distribution, wall contacts, off-track excursions, whether a clean lap is achievable |
-| **Feel proxy** | Input-to-visible-response time, drift angle sustained through corner arcs, and clean-vs-sloppy lap delta. If sloppy driving is not measurably slower, the handling model has no depth whatever it looks like |
-| **Determinism** | Fixed physics timestep, input tape, seeded particles and debris, no wall clock in vehicle sim |
-| **Coupled** | Vehicle physics + camera + speed-sensation post. Camera tuning changes perceived handling, which changes what the physics must do. Track art and audio fan out |
-| **Exit** | beauty ≥ 75 across all 36 · clean lap achievable on every combination · sloppy-vs-clean delta ≥ 8% per track · p50 ≥ 60fps · zero physics instabilities across 500 laps |
-| **Readiness** | 8/10 — −1 no external bar for feel, −1 the proxy is a proxy |
+| **Defining feature** | a portal you can see through and walk through, correctly |
+| **Primary member** | `chamber-01` — the first room, with a portal pair in frame |
+| **Members** | 12 chambers × portal configurations, including the awkward views |
+| **Reference** | `artifact` — Portal 2 stills for material and light |
+| **Target / notch** | 75 / 55 |
+| **Gauges** | portal fidelity (pixel disagreement vs an independently-derived truth render) · solver clears by an intended path · zero unintended solutions · p50 ≥ 60 |
+| **Coupled** | portal recursion + lighting + momentum transfer. Recursion depth bounds the lighting budget; momentum carry changes what geometry is reachable |
+| **Readiness** | 9/10 — −1 aesthetic bar is subjective; the solver gauge carries a lot |
+
+**Note the shape of portal fidelity.** Ground truth comes from a *different code path*
+than the through-view, so agreement tests the transform rather than confirming itself. And
+it needs a visible aperture at every member — a bar scoring an empty set cannot fail, which
+reads as a pass.
 
 ## C — Roguelike deckbuilder
 
 | | |
 |---|---|
-| **Bar** | A shipped deckbuilder for UI clarity and card readability — and its published win-rate-by-archetype data as the reference for the systems bar |
-| **Coverage** | 200 generated runs × 4 archetypes. Has a seed, but the axis is **runs** — the failure mode is a degenerate strategy, not an ugly frame |
-| **Player** | Completes full runs from the rendered UI only, no direct card or intent data. Reports win rate per archetype, turn counts, picks and reasons, where runs became unwinnable. A second adversarial agent hunts for a dominant loop; finding one that wins 90% fails the build regardless of appearance |
-| **Determinism** | Seeded shuffle and generation, no wall clock, fixed animation budget during capture |
-| **Coupled** | Card pool + enemy design + economy. Adding a card changes what every encounter is worth. **This is the simulation, not the renderer** — here the renderer is the easy part and fans out |
-| **Exit** | win rate 35–55% per archetype across 200 runs · no card in >70% of winning decks · no dominant loop in 500 adversarial runs · UI legibility ≥ 80 blind A/B · every card readable at target resolution |
-| **Readiness** | 9/10 — −1 large content surface. Note the visual bar is nearly irrelevant here. Do not default to beauty gates because earlier examples had them |
+| **Defining feature** | the card economy. A run you can complete, with choices that matter |
+| **Primary member** | `combat-mid` — a mid-run encounter with a built deck on screen |
+| **Members** | 4 archetypes × 3 run stages |
+| **Reference** | `artifact` — a shipped deckbuilder for card readability, plus its published win-rate-by-archetype data |
+| **Target / notch** | 80 / 60 (UI legibility) |
+| **Gauges** | win rate 35–55% per archetype over 200 runs · no card in >70% of winning decks · no dominant loop found adversarially |
+| **Coupled** | card pool + enemy design + economy. **This is the simulation, not the renderer** — here the renderer fans out freely |
+| **Readiness** | 9/10 — −1 large content surface |
 
-## D — Daily generated first-person navigation game
+**The visual bar is nearly irrelevant here and the systems gauges carry the run.** Do not
+default to a beauty-shaped fidelity bar because the examples above had one. For this
+concept, "fidelity" is UI legibility and the interesting measurement is balance.
+
+## D — Arcade racer
 
 | | |
 |---|---|
-| **Bar** | Real photography of the specific biome, blind A/B: which is the photograph? |
-| **Coverage** | 64 daily seeds. The product is a *generator* — one beautiful world proves nothing; a generator making one gorgeous forest and 63 green mazes reviews perfectly on whichever seed you looked at |
-| **Player** | Dropped at the trailhead with frames, a compass, a clock. No coordinates, no world data. Success: reached camp before dark. Reports where it backtracked and what it believed when it went wrong — and whether the world was illegible or the agent misread a legible world |
-| **Determinism** | Lockstep rendering with the animation loop off during capture, seeded everything, in-world clock only, fresh page per shot |
-| **Coupled** | Renderer + sky + water + terrain materials |
-| **Exit** | beauty ≥ 80 blind A/B · ≥ 90% of seeds solved · p50 ≥ 60fps, p99 ≥ 30, zero mid-play shader compiles · no unexplained hydrology or trail placement |
-| **Readiness** | 10/10 — two independent objective bars, strong coverage axis, and a mechanical critic measuring what the game is actually about |
+| **Defining feature** | drift that pays out. Hold it through a corner and you gain |
+| **Primary member** | `corner-approach` — the hero corner, mid-drift |
+| **Members** | 6 tracks × dry/wet |
+| **Reference** | `artifact` — footage from a named shipped racer for camera and speed sensation |
+| **Target / notch** | 75 / 55 |
+| **Gauges** | clean lap achievable everywhere · **sloppy-vs-clean lap delta ≥ 8%** · p50 ≥ 60 |
+| **Coupled** | vehicle physics + camera + speed post. Camera tuning changes perceived handling, which changes what the physics must do |
+| **Readiness** | 8/10 — −1 no external bar for feel, −1 the feel proxy is a proxy |
+
+**That delta gauge is the whole trick.** "Does it feel good" is unmeasurable; "is sloppy
+driving measurably slower" is not. If the answer is no, the handling model has no depth
+whatever it looks like. An independent build of this genre landed on the same proxy and
+measured 5.35%.
 
 ## E — Rhythm game
 
 | | |
 |---|---|
-| **Bar** | A shipped rhythm game for note-highway readability and hit feedback |
-| **Coverage** | 20 charts × 3 difficulties. Worst chart scores |
-| **Player** | Plays from rendered frames with simulated input latency, reporting achievable accuracy per chart |
-| **Real instrument** | Offline timing audit: audio-to-visual sync at sample level across the full chart, input-to-feedback latency end to end. Both exactly measurable, which makes this genre far more tractable than it first appears |
-| **Determinism** | Sample-accurate audio scheduling, fixed frame budget, no wall clock |
-| **Coupled** | Audio scheduling + input timing + visual feedback cannot be split at all. This is nearly the whole game — treat it as one sequential phase |
-| **Exit** | A/V sync within 5ms on every chart · input-to-feedback under one frame · agent ≥ 95% accuracy at target difficulty · readability ≥ 80 blind A/B · zero audio dropouts across 100 plays |
+| **Defining feature** | a chart you can play, in sync |
+| **Primary member** | `highway-mid` — the note highway at target density |
+| **Members** | 20 charts × 3 difficulties |
+| **Reference** | `artifact` — a shipped rhythm game for highway readability |
+| **Target / notch** | 80 / 60 |
+| **Gauges** | A/V sync within 5 ms sample-level · input-to-feedback under one frame · agent accuracy ≥ 95% |
+| **Coupled** | audio scheduling + input timing + visual feedback. Cannot be split at all — nearly the whole build |
 | **Readiness** | 8/10 — −1 the coupled cluster is most of the build, −1 "does it feel good" stays outside the instrument |
+
+**Timing is exactly measurable**, which makes this genre far more tractable than it looks.
+The gauges here are sharper than the fidelity bar.
 
 ## F — Short narrative walking simulator
 
 | | |
 |---|---|
-| **Bar** | A shipped narrative exploration game for environment art and pacing |
-| **Coverage** | Weak. 5 scenes × 4 camera positions. No meaningful distribution — a fixed authored artifact |
-| **Player** | Thin. Verifies the sequence completes, every trigger fires, nothing is reachable out of order or unreachable. Cannot evaluate whether the story lands |
-| **Coupled** | Render + lighting + audio atmosphere |
-| **Exit** | beauty ≥ 70 across 20 shots · zero soft-locks in 100 traversals · zero missed triggers · budget met |
-| **Readiness** | **5/10** — −3 no mechanical success condition beyond "it doesn't break", −2 no coverage axis |
+| **Defining feature** | the place, and moving through it |
+| **Primary member** | `opening-vista` |
+| **Members** | 5 scenes × 4 camera positions — a fixed authored artifact, weak as a distribution |
+| **Reference** | `artifact` — a shipped narrative exploration game |
+| **Target / notch** | 70 / 50 |
+| **Gauges** | thin. Sequence completes, every trigger fires, nothing unreachable |
+| **Human judges** | whether the writing lands. Which is the whole game |
+| **Readiness** | **5/10** — −2 nothing meaningfully checkable once operable, −2 no real distribution, −1 subjective |
 
-**F is the case to handle honestly.** A 5/10 is a real answer, not a failure to score it. The loop will genuinely improve the environment art
-and genuinely verify nothing is broken. It will not tell anyone whether the writing is
-good. Say which parts of the concept the instrument covers and which parts the human
-judges, before they spend eleven hours.
+**Handle this one honestly.** The loop will genuinely improve the environment art and
+genuinely verify nothing is broken. It will not tell anyone whether the story works. Say
+which parts the instrument covers and which parts they judge — before they spend eleven
+hours, not after.
+
+## G — Terminal roguelike, ASCII
+
+| | |
+|---|---|
+| **Defining feature** | the dungeon and the turn loop |
+| **Primary member** | `depth-3` — a mid-depth floor, fully lit |
+| **Reference** | `model-prior` — "a shipped commercial roguelike's screen clarity." No images exist worth freezing |
+| **Target / notch** | 70 / 50 (screen legibility) |
+| **Gauges** | agent completes depth 5 from the rendered screen only · no unwinnable floors in 500 generations · turn resolution under 16 ms |
+| **Readiness** | **6/10** — −2 model-prior, −2 legibility is the only visual bar and it is subjective |
+
+**Here is why this one is in the set.** "AAA quality" would be nonsense; the equivalent is
+"shipped commercial roguelike clarity," and that is what goes in the prompt. The fidelity
+bar is thin and the *mechanical* gauges carry everything — which is fine, and worth saying
+out loud, because a 6/10 with strong gauges often produces a better artifact than an 8/10
+riding on a subjective bar.

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * doctor.mjs — clone-time preflight
+ * doctor.mjs — where am I, what next.
  *
- * The first thing anyone runs. Works on a bare clone with zero configuration and no
- * dependencies installed. Tells you whether this machine can run an Anvil Loop, what
- * state this repo is in, and exactly what to do next.
+ * First thing anyone runs. Works on a bare clone with nothing installed.
+ * Also decides which instrument is worth building NEXT — instruments are built when
+ * their reading becomes useful, never in a batch up front.
  *
  *   node tools/doctor.mjs [--json]
  */
@@ -17,134 +17,137 @@ const JSON_OUT = process.argv.includes('--json')
 const has = (p) => existsSync(`${ROOT}/${p}`)
 const badJson = []
 const readJson = (p) => {
-  if (!existsSync(`${ROOT}/${p}`)) return null
+  if (!has(p)) return null
   try { return JSON.parse(readFileSync(`${ROOT}/${p}`, 'utf8')) }
-  catch (e) { badJson.push(`${p}: ${String(e.message).slice(0, 90)}`); return null }
+  catch (e) { badJson.push(`${p}: ${String(e.message).slice(0, 80)}`); return null }
 }
 const which = (c) => { try { return execSync(`command -v ${c}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null } }
 
 const checks = []
 const add = (name, ok, detail, fatal = false) => checks.push({ name, ok, detail, fatal })
 
-/* --- environment ------------------------------------------------------- */
-
-const major = Number(process.versions.node.split('.')[0])
-add('node >= 18', major >= 18, `v${process.versions.node}`, true)
-add('git available', !!which('git'), which('git') ?? 'not found — you can still run, but history and anchors are safer with it')
-
-/* --- the repo shipped intact ------------------------------------------- */
+add('node >= 18', Number(process.versions.node.split('.')[0]) >= 18, `v${process.versions.node}`, true)
+add('git', !!which('git'), which('git') ?? 'not found — history and frozen references are safer with it')
 
 const CORE = [
   'AGENTS.md', 'METHOD.md', 'TOOLS.md', 'DEFINE.md', 'EXAMPLES.md',
-  'templates/anvil.json', 'templates/ARCHITECTURE.md', 'templates/HARNESS.md',
-  'templates/KICKOFF.md', 'templates/PROGRESS.md',
-  'tools/gate.mjs', 'tools/verify-harness.mjs', 'tools/validate-spec.mjs',
-  'tools/journal.mjs', 'tools/status.mjs', '.claude/agents/critic.md',
+  'templates/anvil.json', 'templates/ARCHITECTURE.md', 'templates/KICKOFF.md', 'templates/PROGRESS.md',
+  'tools/board.mjs', 'tools/journal.mjs', 'tools/status.mjs',
+  'tools/validate-spec.mjs', 'tools/instruments.mjs', '.claude/agents/critic.md',
 ]
 const missing = CORE.filter((f) => !has(f))
-add('framework files intact', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : `${CORE.length}/${CORE.length} present`, true)
+add('framework intact', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : `${CORE.length}/${CORE.length}`, true)
 
-/* --- the shipped programs actually parse -------------------------------- */
-
-const SHIPPED = ['gate.mjs', 'verify-harness.mjs', 'validate-spec.mjs', 'journal.mjs', 'status.mjs', 'doctor.mjs']
-let parseErr = null
-for (const t of SHIPPED) {
-  if (!has(`tools/${t}`)) continue
-  try { execSync(`node --check tools/${t}`, { stdio: 'ignore' }) } catch { parseErr = t; break }
-}
-add('shipped programs parse', !parseErr, parseErr ? `tools/${parseErr} failed node --check` : `${SHIPPED.filter((t) => has(`tools/${t}`)).length} programs OK`, true)
-
-// A run killed mid-write leaves a truncated source file. Nothing else notices until
-// something fails much later with a confusing error.
-let truncated = []
+// A run killed mid-write leaves a truncated source file that fails much later with a
+// confusing error. Cheap to catch here.
+const truncated = []
 try {
   for (const f of execSync('ls tools/*.mjs 2>/dev/null || true', { encoding: 'utf8' }).trim().split('\n').filter(Boolean)) {
     try { execSync(`node --check ${f}`, { stdio: 'ignore' }) } catch { truncated.push(f) }
   }
 } catch {}
-if (truncated.length) add('no truncated files', false, `${truncated.join(', ')} — likely killed mid-write, rewrite before continuing`)
-
-/* --- where this project is --------------------------------------------- */
+if (truncated.length) add('no truncated files', false, `${truncated.join(', ')} — killed mid-write, rewrite before continuing`)
 
 const spec = readJson('anvil.json')
-const verified = has('.anvil/harness-verified.json')
 const state = readJson('.anvil/state.json')
+if (badJson.length) add('spec files parse', false, `${badJson.join(' | ')} — repair it; do NOT re-run definition, the spec exists`, true)
 
-const GENERATED = ['capture.mjs', 'sweep.mjs', 'diff.mjs', 'player.mjs', 'budget.mjs', 'anchor.mjs', 'critic.mjs']
-const built = GENERATED.filter((t) => {
+/* --- which instrument is worth building next ------------------------------- */
+
+const built = (t) => {
   if (!has(`tools/${t}`)) return false
   const src = readFileSync(`${ROOT}/tools/${t}`, 'utf8')
   return !/NOT[ _]IMPLEMENTED/i.test(src) && statSync(`${ROOT}/tools/${t}`).size >= 200
-})
-
-// A malformed anvil.json must never read as "no spec" — that sends the agent back into
-// the definition conversation and rewrites the contract the run is judged against.
-if (badJson.length) {
-  add('spec files parse', false, `${badJson.join(' | ')} — repair the file; do NOT re-run definition, the spec exists`, true)
 }
 
-let stage, next, resuming = false
+const LADDER = [
+  { tool: 'capture.mjs', when: () => true,
+    why: 'you cannot climb what you cannot see' },
+  { tool: 'critic.mjs', when: () => true,
+    why: 'you cannot climb what you cannot score' },
+  { tool: 'diff.mjs', when: (s) => (s?.history?.length ?? 0) >= 3 && (s?.noiseFloor == null || s.noiseFloor > 5),
+    why: 'the ratchet is only as sensitive as your noise floor, and determinism is how you tighten it' },
+  { tool: 'sweep.mjs', when: (s) => (s?.act ?? 1) >= 2,
+    why: 'Act II widens the coverage axis' },
+  { tool: 'perf.mjs', when: (s) => (s?.history?.length ?? 0) >= 4,
+    why: 'fidelity work costs frame time and you are far enough in to want the number' },
+  { tool: 'player.mjs', when: (s) => (s?.act ?? 1) >= 2,
+    why: 'the artifact is good enough that whether it can be operated now matters' },
+  { tool: 'solvable.mjs', when: (s) => (s?.act ?? 1) >= 2 && built('player.mjs'),
+    why: 'without it, a player failure cannot be told apart from an impossible task' },
+  { tool: 'anchor.mjs', when: (s) => (s?.history?.length ?? 0) >= 6,
+    why: 'scores have been moving long enough that critic drift is now a live risk' },
+]
 
-// An open claim means the previous session was killed mid-task. Resuming there beats
-// anything else the state file says.
+const nextInstrument = spec ? LADDER.find((l) => !built(l.tool) && l.when(state)) : null
+const pending = spec ? LADDER.filter((l) => !built(l.tool)).map((l) => l.tool) : []
+
+/* --- stage ----------------------------------------------------------------- */
+
+let stage, next
+const lastRound = state?.history?.at(-1)
+const floor = state?.noiseFloor ?? 6
+const regressed = lastRound && state
+  ? Object.entries(lastRound.scores ?? {}).filter(([m, s]) =>
+      typeof s === 'number' && typeof state.best?.[m] === 'number' && s < state.best[m] - floor)
+  : []
+
 if (state?.inFlight) {
-  resuming = true
-  stage = `INTERRUPTED — phase ${state.phase?.id ?? '?'}`
-  next = `Resume the interrupted task: "${state.inFlight.task}" (claimed ${state.inFlight.startedAt}).\n` +
-    `  First verify what actually landed on disk — a killed process leaves partial work.\n` +
-    `  Then finish it and close the claim:  node tools/journal.mjs --end`
+  stage = 'INTERRUPTED'
+  next = `Resume "${state.inFlight.task}" (claimed ${state.inFlight.startedAt}).\n` +
+    `  Verify what actually landed on disk first — a killed process leaves partial work.\n` +
+    `  Then close it:  node tools/journal.mjs --end`
 } else if (badJson.some((b) => b.startsWith('anvil.json'))) {
   stage = 'SPEC CORRUPT'
-  next = 'anvil.json exists but does not parse. Repair it — check git history for the last good copy.\n' +
-    '  Do NOT re-run the definition conversation; that would rewrite the contract this run is judged against.'
+  next = 'anvil.json exists but does not parse. Repair it from git history.\n  Do NOT re-run the definition conversation — that rewrites the contract this run is judged by.'
 } else if (!spec) {
   stage = 'UNDEFINED'
   next = 'No spec yet. Read AGENTS.md and run SITUATION 1 — the definition conversation.'
-} else if (built.length < GENERATED.length) {
-  stage = 'PHASE 0 — harness'
-  next = `Build the harness — ${GENERATED.length - built.length} of ${GENERATED.length} tools missing. NO PRODUCT CODE until they exist. See TOOLS.md.`
-} else if (!verified) {
-  stage = 'PHASE 0 — verification'
-  next = 'Run  node tools/verify-harness.mjs  — the harness exists but is unproven. Until it passes, every score is noise.'
+} else if (regressed.length) {
+  stage = 'REGRESSION'
+  next = `${regressed.map(([m]) => `"${m}"`).join(', ')} scored below its own best.\n` +
+    `  This is the one rule. Stop and tell the human what changed and what you think broke it.`
+} else if (!built('capture.mjs') || !built('critic.mjs')) {
+  stage = `ROUND ${(state?.round ?? 0) + 1} — first light`
+  next = `Build the artifact. ${spec.definingFeature ? `"${spec.definingFeature}" must exist in this round, however crudely.` : ''}\n` +
+    `  Then build capture.mjs and critic.mjs — the two you cannot climb without — and score it.\n` +
+    `  NO other instruments. They measure things that do not exist yet.`
 } else {
-  stage = state?.phase?.name ? `PHASE ${state.phase.id} — ${state.phase.name}` : 'RUNNING'
-  next = state?.nextAction || 'No next action was recorded. Run  node tools/gate.mjs  to establish where the bars stand, then continue the phase.'
+  stage = `Act ${state?.act ?? 1} · round ${(state?.round ?? 0) + 1}`
+  next = state?.nextAction ||
+    `node tools/board.mjs  —  it names the target member and why.` +
+    (nextInstrument ? `\n  Worth building now: tools/${nextInstrument.tool} — ${nextInstrument.why}.` : '')
 }
 
-/* --- warnings that predict a bad run ------------------------------------ */
+/* --- warnings that predict a bad run --------------------------------------- */
 
 const warnings = []
 if (spec) {
-  const unmeasurable = (spec.bars ?? []).filter((b) => !b.command)
-  if (unmeasurable.length) warnings.push(`${unmeasurable.length} bar(s) have no command and cannot be gated: ${unmeasurable.map((b) => b.id).join(', ')}`)
-  if (!spec.coverage?.members) warnings.push('no coverage axis declared — reviews will judge a single instance')
-  if (!spec.player?.denied?.length) warnings.push('player denial list is empty — the mechanical critic can see everything and its gate is meaningless')
-  if (!spec.coupledCluster?.subsystems?.length) warnings.push('no coupled cluster named — parallel fixes will clobber each other')
+  if (!spec.fidelity?.command) warnings.push('no fidelity command — the loop has nothing to climb')
+  if (!spec.fidelity?.scale) warnings.push('fidelity scale is uncalibrated — the number means whatever the critic decides that round')
+  if (!spec.primaryMember) warnings.push('no primaryMember — Act I has no single thing to take to the target')
+  if (!spec.definingFeature) warnings.push('no definingFeature declared — nothing forces the thing that makes this *this* into round one')
+  if (!spec.reference?.mode) warnings.push('no reference mode — the bar is not pinned to anything external')
 }
-if (state?.stall?.rounds >= 3) warnings.push(`STALLED — ${state.stall.rounds} gate runs with no improvement on any bar`)
-if (state?.drift?.at(-1)?.detected) warnings.push('CRITIC DRIFT DETECTED on the last anchor run — recent score gains are not real')
+if ((state?.debt ?? []).filter((d) => !d.paid).length > 6) warnings.push(`${state.debt.filter((d) => !d.paid).length} open debt items — heavy for Act ${state?.act ?? 1}`)
 
-/* --- output ------------------------------------------------------------- */
-
-const fatalFail = checks.some((c) => !c.ok && c.fatal)
+const fatal = checks.some((c) => !c.ok && c.fatal)
 
 if (JSON_OUT) {
-  console.log(JSON.stringify({ ok: !fatalFail, stage, next, resuming, inFlight: state?.inFlight ?? null, checks, warnings, built: built.length, generated: GENERATED.length }, null, 2))
-  process.exit(fatalFail ? 1 : 0)
+  console.log(JSON.stringify({ ok: !fatal, stage, next, checks, warnings, nextInstrument: nextInstrument?.tool ?? null, pendingInstruments: pending, act: state?.act ?? 1, round: state?.round ?? 0 }, null, 2))
+  process.exit(fatal ? 1 : 0)
 }
 
 console.log(`\n  THE ANVIL LOOP — doctor\n`)
-for (const c of checks) console.log(`  ${c.ok ? 'OK  ' : 'FAIL'}  ${c.name.padEnd(26)}${c.detail}`)
+for (const c of checks) console.log(`  ${c.ok ? 'OK  ' : 'FAIL'}  ${String(c.name).padEnd(20)}${c.detail}`)
 console.log(`\n  ${spec?.project ? `${spec.project} · ` : ''}${stage}`)
-if (spec) console.log(`  harness: ${built.length}/${GENERATED.length} tools built, ${verified ? 'verified' : 'NOT verified'}`)
-if (state?.interrupted?.length) console.log(`  ${state.interrupted.length} previously interrupted task(s) on record`)
+if (spec) {
+  const b = LADDER.filter((l) => built(l.tool)).length
+  console.log(`  instruments: ${b}/${LADDER.length} built${pending.length ? `  ·  on demand, not up front` : ''}`)
+}
 if (warnings.length) {
   console.log(`\n  warnings`)
   for (const w of warnings) console.log(`    · ${w}`)
 }
-console.log(
-  fatalFail
-    ? `\n  This machine or this clone cannot run the loop yet. Fix the FAIL lines above.\n`
-    : `\n  NEXT\n  ${next}\n`
-)
-process.exit(fatalFail ? 1 : 0)
+console.log(fatal ? `\n  This clone cannot run yet. Fix the FAIL lines.\n` : `\n  NEXT\n  ${next}\n`)
+process.exit(fatal ? 1 : 0)

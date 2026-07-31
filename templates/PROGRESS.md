@@ -1,13 +1,12 @@
 # {{PROJECT}} — progress
 
-The loop's memory. Every iteration reads this first and updates it before finishing.
+The loop's memory. Read it first; `board.mjs --record` and `journal.mjs` write it.
 
-**The blocks between `<!-- anvil:auto:* -->` markers are written by `tools/journal.mjs`.
-Do not edit inside them — your edits are overwritten on the next run.** Everything
-outside them is yours to write.
+**Blocks marked `<!-- anvil:auto:* -->` are written by programs. Do not edit inside them —
+your edits are overwritten.** Everything outside them is yours.
 
-That split is deliberate. Agents write prose; programs write numbers. Hand an agent a
-free-form status file and by iteration thirty the numbers have turned into adjectives.
+Agents write prose; programs write numbers. A status file an agent is *asked* to keep
+honest turns into adjectives by round thirty.
 
 ---
 
@@ -19,43 +18,31 @@ _Run `node tools/journal.mjs` to populate._
 
 ---
 
-## Decisions on record
+## Scores
 
-Settled. Do not re-litigate. Anything not listed here is still open.
-**This section is yours — the loop writes it by hand, because a decision needs a reason
-and a reason is prose.**
+Appended by `board.mjs --record`. The `saw` column is what the frame actually showed —
+recorded because every expensive failure here was visible in an image and invisible in a
+number.
 
-| decision | value | basis |
-|---|---|---|
-| {{decision}} | **UNDECIDED** | {{what will settle it}} |
-
----
-
-## Gate history
-
-`tools/gate.mjs` records every run into `.anvil/state.json`; `tools/journal.mjs` renders
-it here. Every run, every number, no exceptions.
-
-<!-- anvil:auto:gate -->
-_No gate runs recorded yet._
-<!-- /anvil:auto:gate -->
+<!-- anvil:auto:scores -->
+_No rounds recorded yet._
+<!-- /anvil:auto:scores -->
 
 ---
 
-## Critic drift
+## Debt
 
-A rising score on frozen anchors is instrument failure, not progress.
+Correctness deferred, not lost. Logged in Act I, paid in Act II.
 
-<!-- anvil:auto:drift -->
-_No anchor runs recorded yet._
-<!-- /anvil:auto:drift -->
+<!-- anvil:auto:debt -->
+_None logged._
+<!-- /anvil:auto:debt -->
 
 ---
 
-## Amendments to the plan
+## Amendments
 
-Methods may be sharpened. Exit numbers may not — `gate.mjs` enforces that mechanically.
-Recorded via `node tools/journal.mjs --amend=FILE --change="..." --reason="..."`.
+Methods may be sharpened. The ratchet may not be loosened.
 
 <!-- anvil:auto:amendments -->
 _None._
@@ -65,17 +52,25 @@ _None._
 
 ## Log
 
-One short note per iteration, via `node tools/journal.mjs --note="..."`.
-Hard numbers, not adjectives. What you ran, what it returned.
-
 <!-- anvil:auto:log -->
 _No entries._
 <!-- /anvil:auto:log -->
 
 ---
 
+## Decisions on record
+
+Settled. Do not re-litigate. **This section is yours** — a decision needs a reason, and a
+reason is prose.
+
+| decision | value | basis |
+|---|---|---|
+| {{decision}} | **UNDECIDED** | {{what will settle it}} |
+
+---
+
 ## Working notes
 
-Free space. Anything that helps the next session pick up without re-deriving what this
-one already worked out — dead ends, things that looked promising and weren't, the reason
-behind a non-obvious choice.
+Free space. Dead ends, things that looked promising and weren't, the reason behind a
+non-obvious choice. Anything that stops the next session re-deriving what this one already
+worked out.

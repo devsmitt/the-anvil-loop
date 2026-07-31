@@ -1,84 +1,35 @@
 # The kickoff prompt
 
-Hand the block below to the human. They send it back to start the run.
+Hand the block below to the human. They send it back and the run starts.
 
-It is written to re-fire, so it cannot say "start at Phase 0" — it reads state, works out
-where it is, does the next increment, records the result. Iteration 1 and iteration 40 run
-the same text and do different work.
+## Composing it — before you print it
 
-## Composing it — do this before you print it
+**The most important part of this prompt is what makes it repeat.** Without it the agent
+does one round and stops.
 
-**The single most important part of this prompt is what makes it repeat.** Without it the
-agent does one increment and stops, and every re-entrant mechanism in this repo — state,
-resume, stall detection — has nothing to re-enter.
-
-Ask the human which agent they are running in, then compose accordingly.
+Ask which agent they are running in.
 
 **Claude Code** — it has a `/loop` skill that re-fires the prompt on its own pacing. Put it
-at the very front of the block:
+at the very front: `/loop Build {{PROJECT}}, ...`
 
-```
-/loop Build {{PROJECT}}, ...
-```
+Also ask about **ultracode** — a mode for heavy multi-agent orchestration, more parallel
+capacity, higher token spend. Recommended here. If yes: `/loop ultracode. Build ...`. If
+they don't know what it is, say so in one line and let them choose. Never enable it
+silently.
 
-Also ask whether they want **ultracode** on. It is a Claude Code mode for heavy multi-agent
-orchestration — more parallel capacity, higher token spend. Recommended for this, because
-the loop fans out critics every round. If yes:
+**Anything else** — no loop primitive. Omit the prefix and keep the KEEP GOING section in
+the body. Ship one or the other, never both.
 
-```
-/loop ultracode. Build {{PROJECT}}, ...
-```
-
-If they do not know what ultracode is, say that in one line and let them choose. Do not
-enable it silently.
-
-**Codex, Cursor, or anything else** — there is no loop primitive. Omit the prefix entirely
-and keep the LOOPING section in the body, which instructs the agent to iterate on its own
-without waiting between rounds.
-
-Delete whichever of the two you did not use. Never ship both.
-
-## The AMBITION section
-
-Ship it as written. **"AAA quality, from textures to physics" stays literal** — it is a
-dense pointer into what the model knows about how shipped games are surfaced, lit and
-tuned, and builds prompted that way come out visibly better. It is not filler and it is
-not a gate; the gate is `anvil.json`.
-
-Reword it only where AAA would be nonsense — a text roguelike, a terminal tool, a 2D card
-game — and then name the real equivalent: "first-party polish," "shipped-product quality."
-Never soften it to something vague like "high quality." 
+**Leave the AMBITION section exactly as written.** "AAA quality, from textures to physics"
+is a dense pointer into what the model knows about how shipped work is surfaced and tuned,
+and builds prompted that way come out visibly better. Reword it only where AAA would be
+nonsense — a text roguelike, a terminal tool — and then name the real equivalent. Never
+soften it to "high quality."
 
 ---
 
 ```
-{{LOOP PREFIX — "/loop " or "/loop ultracode. " for Claude Code; nothing for other agents}}Build {{PROJECT}}, the {{one-line concept}} specified in this repo. Fan out sub-agents.
-Run until the gate passes.
-
-STATE — first, every iteration.
-
-  1. node tools/doctor.mjs
-     If it says INTERRUPTED, follow SITUATION 3 in AGENTS.md before anything else.
-  2. Read AGENTS.md, METHOD.md, ARCHITECTURE.md, HARNESS.md. Binding, not advisory.
-  3. Read PROGRESS.md. It records the phase, what is finished, what the last gate
-     returned, and the next action.
-  4. node tools/journal.mjs --begin="<the task you are about to do>"
-  5. Do the next increment.
-  6. Close out: gate, --note, --next, --end, status. Act on any alert.
-     During Phase 0 skip the gate — it refuses until verify-harness passes, by design.
-
-Never restart a finished phase. Never re-derive a decision PROGRESS.md already records.
-
-LOOPING
-{{KEEP THIS SECTION ONLY IF THERE IS NO /loop PREFIX ABOVE. DELETE IT IF THERE IS.}}
-
-Do not stop after one iteration. The moment you finish closing out, begin the next one —
-doctor, PROGRESS.md, claim, increment, close out — and keep going without waiting for me
-to reply. One increment is not the job; converging the gate is the job.
-
-Stop only when the gate passes, when you need a decision only I can make, or when you run
-out of room. If you run out of room, leave the state clean: --next set, claim closed or
-left open honestly.
+{{LOOP PREFIX — "/loop " or "/loop ultracode. " for Claude Code; nothing otherwise}}Build {{PROJECT}}, {{one-line concept}}, specified in this repo.
 
 AMBITION
 
@@ -86,117 +37,114 @@ Build this at AAA quality. Utterly perfect, from textures to physics to lighting
 animation to audio to input feel to anything else you could think of. Every single part
 held to that bar, not just the parts that are interesting to build.
 
-A subsystem nobody reviewed is a subsystem that is worse than everything around it, and it
-is the first thing a player notices. There is no such thing as a detail that is beneath
-this build.
+{{The reference}} is the target and nothing about the medium excuses falling short of it.
+Do not stop at your first idea of what is possible here.
 
-Do not settle for "good enough for a browser game." {{The reference}} is the target, and
-nothing about the medium excuses falling short of it. Do not stop at your first idea of
-what is possible here.
+THE JOB
 
-ROLE
+Make {{PROJECT}} look and feel closer to that target. Every round. That is the whole job.
 
-You are the lead. You own {{shared dirs}}, tools/, and the contract documents. Every other
-directory belongs to a subsystem agent. Ownership is in ARCHITECTURE.md and it is absolute.
+Round one builds the artifact — and {{definingFeature}} exists in it, however crudely.
+Not a greybox, not a harness, not a plan. The thing.
 
-PHASES — in order. No reordering. No skipping.
+EVERY ROUND
 
-  0  {{harness + spike}}                    NO PRODUCT CODE
-  1  {{...}}
-  {{n}}  {{coupled cluster}}                SEQUENTIAL, ONE OWNER
-  {{n}}  {{independent work}}               PARALLEL IS SAFE
-  {{n}}  the critic loop                    UNTIL THE GATE PASSES
+  1. node tools/doctor.mjs                 where you are, what to build next
+  2. node tools/board.mjs                  the target member, and why it is the target
+  3. node tools/journal.mjs --begin="..."  claim the work before starting it
+  4. Build. Make the target member better.
+  5. LOOK AT IT. Open the frame. Not the number — the image.
+  6. node tools/board.mjs --record --saw="<what the frame actually shows>"
+  7. node tools/journal.mjs --next="..." --end && node tools/status.mjs
 
-Phase 0 is not a formality. Before any product code exists, node tools/verify-harness.mjs
-must pass — which requires two consecutive capture runs to be bit-identical. If captures
-are not reproducible, every review after this point is noise and the run is wasted. Prove
-it, then move on.
+Step 5 is not a formality. Every expensive failure this framework has seen was plain in
+one image and invisible in every number: frames graded from a build that no longer
+existed, a creek that read as an asphalt road, a playing critic staring at a wall.
 
-{{Let the spike settle {{the provisional decision}}. Decide it from a measured number, not
-from reasoning, and record the number in PROGRESS.md.}}
+KEEP GOING
+{{KEEP THIS SECTION ONLY IF THERE IS NO /loop PREFIX ABOVE. DELETE IT IF THERE IS.}}
 
-HOW TO RUN
+Do not stop after one round. The moment you finish recording, start the next one, without
+waiting for me to reply. One round is not the job; reaching the target is.
 
-Fan out on REVIEWS. Serialize on FIXES.
+THE ONE RULE
 
-Spawn the critics in parallel — they are independent and must not see each other's output.
-Take the single highest-severity finding, hand it to the one agent that owns that
-directory, let it work alone. When it reports, re-gate with tools/diff.mjs on everything
-that was not supposed to change, and go again.
+A member may never score below its own best. board.mjs checks it. If it fires, stop and
+tell me what changed and what you think broke it. Do not raise the noise floor and do not
+re-run hoping for a better draw.
 
-Do not assign six findings to six agents. {{The coupled cluster}} is one system; parallel
-agents each break the others' assumptions while all six report success.
+Everything else this repo measures is a reading, not a rule. Framerate, playability,
+determinism, coherence — they inform what you do next. None of them stop you.
 
-Fan out freely on genuinely independent work — {{list}}.
+INSTRUMENTS ARE BUILT WHEN YOU NEED THE READING
 
-EVERY GATE RUNS ACROSS {{THE COVERAGE AXIS}}. NEVER ONE {{MEMBER}}.
+Round one: capture and critic, because you cannot climb what you cannot see or score.
+Nothing else. Every other instrument measures something that does not exist yet, and will
+need rewriting once it does. doctor.mjs names the next one when its reading becomes
+useful.
 
-{{Why one member proves nothing here.}} Judge the worst member, never the median.
+CORRECTNESS IS DEBT UNTIL FIDELITY CLEARS
 
-ALL BARS MUST PASS
+Traversal bugs, soft-locks, physics failures: log them and move on.
 
-{{What passing one bar and failing another is called, and why it is a failure rather than
-progress. Restate any rule that is not tunable.}}
+  node tools/journal.mjs --debt="..." --evidence="..."
 
-{{When bars conflict, which wins.}}
+Do not fix them in Act I. A previous run spent three hours making a player traverse water
+that was, at the time, a flat blue ribbon that read as asphalt. The bug was real. The
+priority was insane.
 
-NO REPORT WITHOUT AN ARTIFACT
+One exception: a defect that stops you MEASURING is not debt, it is a blocker. If the
+build will not boot or a member cannot be scored, fix it now.
 
-{{What counts as one here.}} "Improved the {{X}}" is not. Reject subsystem reports that
-carry no evidence, including your own.
+DEPTH BEFORE BREADTH
 
-THE CRITICS DRIFT
+Act I climbs exactly one member: {{primaryMember}}. Take it to {{actNotch}} before widening
+to anything else. Sweeping the full axis on a build sitting at 20 measures the same
+badness N times.
 
-Before believing a rising score, check the anchor set. If frozen artifacts now score
-higher than they originally did, the critic softened — replace it and re-run the round.
+Act II opens automatically when {{primaryMember}} reaches the notch. Then widen, pay the
+debt, and turn on the mechanical bars.
 
-AMENDING THIS PLAN
+{{The coupled cluster}} is one system — work it with one owner at a time. Parallel agents
+there break each other's assumptions while all of them report success. Fan out freely on
+genuinely disjoint work.
 
-You may sharpen the architecture, the harness, and the phase plan. Log every amendment
-with node tools/journal.mjs --amend.
+WHEN A ROUND DOESN'T MOVE IT
 
-You may not weaken an exit number, remove a bar, or narrow the coverage axis. gate.mjs
-blocks it. If you believe one is wrong, stop and tell me.
+Three rounds with no improvement means the approach is wrong, not that you need another
+pass of the same thing. Change the decomposition, the owner, or the critic — and look at
+the frame before deciding. board.mjs tells you when this happens and whether it is a weak
+member or a global ceiling; those need opposite responses.
 
-EXIT CONDITION
+TARGET
 
-node tools/gate.mjs decides. It reads anvil.json:
-
-  {{bar}}    {{number}}
-  {{bar}}    {{number}}
-  {{bar}}    {{number}}
+  {{fidelity id}}   {{target}}   on the worst member, across {{the axis}}
 
 STOPPING
 
-Stop when gate.mjs reports all bars passing, and give me the final numbers.
+Stop when every member holds at or above the target, and give me the final numbers.
+Stop and ask if the ratchet fires, if a gauge suggests the target itself is wrong, or if
+the concept needs a decision only I can make.
 
-Do not stop because most are green. Do not stop because a round produced a small gain —
-record it and keep going. If you are blocked on something only I can decide, stop and ask.
-
-I may run out of limits or close the session mid-run. That is expected — pick up from
+I may run out of limits or close the session mid-round. Expected — pick up from
 doctor.mjs when I say continue.
-
-On your first iteration, tell me {{the Phase 0 decision}} and the measured evidence behind
-it before starting Phase 1.
 ```
 
 ---
 
-## What to tell the human at handoff
+## At handoff, tell the human
 
-Five lines, not an essay. The readiness score and what it means. The exit condition. Which
-bars a program judges and which parts only they can judge. What Phase 0 settles before any
-product code exists. The assumption you are least confident in.
+Five lines. The readiness score and its deductions. The target. Which parts a program
+judges and which parts only they can. What round one will produce. The assumption you are
+least confident in.
 
-Then: *send the block above back to me and the run starts. Stop any time; say "continue"
-and I pick up where it left off.*
+Then: *send the block above back and the run starts. Stop any time; say "continue" and I
+pick up where it left off.*
 
-## What to surface to them later, unprompted
+## Surface unprompted, later
 
-- **A phase boundary.** The exit criteria are objective so they can check your work rather
-  than trust it. A bad decision at Phase 0 or at the coupled cluster poisons everything
-  downstream.
-- **Critic drift.** If scores climb three rounds while artifacts look unchanged, say so.
-- **A mechanical critic that suddenly succeeds at everything.** It is probably too capable
-  to be a fair proxy for a human, which means the bar it guards is no longer real.
-- **A stall.** Three gate runs with no movement means the approach is wrong.
+- **The first frame.** They should see round one's output, not hear about it.
+- **A regression.** The one rule fired — say what changed.
+- **A stall or a ceiling.** Three rounds flat means the approach is wrong.
+- **A gauge that suggests the target is wrong.** If perf says the target density cannot
+  hold the budget, that is a conversation, not a thing to quietly absorb.
