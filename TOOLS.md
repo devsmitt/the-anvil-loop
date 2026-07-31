@@ -1,6 +1,6 @@
 # INSTRUMENT CONTRACTS
 
-Five programs ship and run on a bare clone. Eight you generate — and **you build each one
+Six programs ship and run on a bare clone. Eight you generate — and **you build each one
 when its reading becomes useful, never in a batch up front.**
 
 A previous version of this framework required seven instruments before the first frame
@@ -24,9 +24,12 @@ names the task so you resume there instead of guessing. When the spec declares
 action until the product builds: a process killed mid-edit leaves source that no longer
 parses, and an hour spent measuring a broken build looks exactly like an hour of work.
 
-Also keeps **the first-light clock**. If round one has been open for hours with no score
-recorded, doctor says so. Not a gate — a nudge, because the most common way to lose a day
-here is to keep improving round one instead of scoring it (Invariant 13).
+Also keeps **the round clock**. A round ends when a number lands on the board; the clock
+measures how long it has been since one did. Past `round.budgetMinutes` it warns. Past 1.5×
+it reports stage **OVERDUE** and names exactly one next action — produce a number — because
+at that point there is only one useful thing to do. Nothing is blocked; the clock exists
+because two runs burned six hours and 2.4M tokens producing zero scores and no instrument
+here could see it happening (Invariant 16).
 
 ### `tools/board.mjs`
 The readout, and the heart of the loop.
@@ -279,7 +282,9 @@ Each of these traces to a specific failure that cost real hours.
 | A run killed mid-task loses or repeats work | `--begin` / `--end` |
 | A parallel fan-out dying with no resume anchor | claim before you launch, not before you type |
 | Correctness work derailing the climb | the debt ledger |
-| Round one tuning by hand for hours instead of scoring | Invariant 13; doctor's first-light clock |
+| Round one tuning by hand for hours instead of scoring | Invariant 13; doctor's round clock |
+| A round wrapped in a phase pipeline, so nothing ever scores | the round clock, on `doctor` and `board` |
+| An hour spent building an instrument for an unscored scene | Invariant 16 — crude instruments first |
 | Captures thrashing each other and blaming resolution | the capture lock, and `ms` in the capture contract |
 | A framerate reported off a software rasterizer | `softwareRasterizer` |
 | An hour spent benchmarking a build that no longer parses | `build.command`, run by doctor after an interruption |

@@ -54,6 +54,9 @@ const state = { ...blank, ...(loaded ?? {}) }
 // The first-light clock. doctor.mjs uses this to notice round one has been open for hours
 // with nothing scored — the most common way to lose a day here (Invariant 13).
 if (!state.startedAt) state.startedAt = new Date().toISOString()
+// The round clock. board.mjs restarts it on every --record; a round ends when a number
+// lands on the board (Invariant 16).
+if (!state.roundStartedAt) state.roundStartedAt = state.startedAt
 // Recovery has to land on disk immediately. Recovering in memory and not writing back
 // leaves the corrupt file for the next tool, which may not be as careful.
 if (RECOVERED) { try { writeFileSync(`${STATE}.tmp`, JSON.stringify(state, null, 2)); renameSync(`${STATE}.tmp`, STATE); console.error('  Recovered state written back to disk.\n') } catch {} }

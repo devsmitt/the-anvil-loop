@@ -38,6 +38,15 @@ if (!spec.concept) warn('no concept line — the dashboard renders blank')
 if (!spec.definingFeature)
   err('no definingFeature — nothing forces the thing that makes this *this* into round one. Runs have reached hour ten with the defining feature untouched.')
 
+/* --- a round has to be able to end ------------------------------------------- */
+const budget = spec.round?.budgetMinutes
+if (budget == null)
+  warn('no round.budgetMinutes — nothing reports how long the loop has gone without producing a score, and that is how two runs reached six hours with zero scores (Invariant 16)')
+else if (typeof budget !== 'number')
+  err('round.budgetMinutes must be a number of minutes')
+else if (budget > 180)
+  warn(`round.budgetMinutes is ${budget} — that is long enough to hide a pipeline. A round is one owner, one pass, one score; if a round genuinely needs three hours, the round is too big.`)
+
 /* --- the product must be buildable, checkably -------------------------------- */
 if (!spec.build?.command)
   warn('no build.command — nothing verifies the product still builds after an interrupted run. A process killed mid-edit leaves source that will not parse, and an hour spent measuring a broken build is indistinguishable from an hour of work.')

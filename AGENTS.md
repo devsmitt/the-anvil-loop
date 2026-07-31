@@ -1,6 +1,6 @@
 # THE ANVIL LOOP — agent instructions
 
-Framework version 2.1.0
+Framework version 2.2.0
 
 You have been opened in a repo containing this file. Read it fully, then read `METHOD.md`.
 Both are binding.
@@ -86,6 +86,18 @@ costs minutes, every decision after this one is built on an instrument you canno
 fix that first. Iterate at the small resolution; full resolution is for frames you keep.
 See Invariant 14.
 
+**Round one is not a pipeline.** Do not structure it as phases — no foundation → cluster →
+integrate → polish, no staged multi-agent workflow that has to complete before anything is
+scored. Two runs died exactly this way: six hours, 2.4M tokens, zero scores, both times
+because one stage consumed the whole budget and nothing downstream was allowed to start.
+Fan out *inside* a step if the work is genuinely disjoint. Never make the round itself a
+structure. See Invariant 16.
+
+**And keep the instruments crude.** `capture.mjs` and `critic.mjs` are about fifty lines
+each the first time. One run spent an hour and five minutes building a capture tool for a
+scene it had never scored. If you are an hour into an instrument, you are building the
+wrong thing — get a number, then earn the right to improve what produced it.
+
 ## Every round after
 
 ```
@@ -104,9 +116,14 @@ Invariant 7 in `METHOD.md`; `--record` will refuse without it.
 
 ## The rules
 
-1. **Every round moves the artifact.** Verification, refactoring and infrastructure that
-   leave the build looking and playing identically did not advance it. Sometimes correct.
-   Three in a row is not.
+1. **Every round moves the artifact, and ends with a number.** A round is one owner, one
+   pass, one score — never a phase ladder or a staged workflow that has to finish before
+   anything is measured. `round.budgetMinutes` (default 90) is not a deadline and nothing
+   stops when it passes; `doctor.mjs` and `board.mjs` simply start reporting how long you
+   have gone without producing a number. A round that cannot score in ninety minutes is not
+   a long round, it is a pipeline. Score what exists and make the next round smaller.
+   Verification, refactoring and infrastructure that leave the build looking and playing
+   identically did not advance it. Sometimes correct. Three in a row is not.
 2. **Instruments when you need the reading.** `doctor.mjs` names the next one and why.
 3. **Depth before breadth.** Act I climbs one member. Widen at the notch, not before.
 4. **Correctness is debt.** `journal.mjs --debt --evidence`, then move on. Exception: a
@@ -130,7 +147,12 @@ Invariant 7 in `METHOD.md`; `--record` will refuse without it.
 10. **You may sharpen methods.** Log amendments with `--amend`. You may not loosen the
     ratchet, raise the noise floor to dodge it, or edit a shipped program to pass. If a
     target is wrong, stop and say so.
-11. **Measure what measuring costs.** Captures run one at a time through a lock, never
+11. **Never tune the artifact to suit the instrument.** When a reading is too expensive,
+    make the *reading* cheaper — fewer pixels, less settle time, a faster machine. Never
+    cheapen the build. A shadow map costing a software rasterizer three minutes costs a
+    real GPU microseconds; trading it away caps the artifact to suit a machine no player
+    will use. If the instrument is the problem, fix the instrument or say so.
+12. **Measure what measuring costs.** Captures run one at a time through a lock, never
     concurrently — on a software rasterizer, parallel captures are slower than serial ones
     and the difference reads as "resolution is expensive" when it is contention. Iterate at
     the working resolution; save full resolution for frames you keep. If the renderer is

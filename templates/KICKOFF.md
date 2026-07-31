@@ -47,6 +47,27 @@ Make {{PROJECT}} look and feel closer to that target. Every round. That is the w
 Round one builds the artifact — and {{definingFeature}} exists in it, however crudely.
 Not a greybox, not a harness, not a plan. The thing.
 
+A ROUND IS NOT A PIPELINE
+
+One owner, one pass, one score. A round ends when a number lands on the board.
+
+Do NOT structure a round as phases. No foundation → cluster → integrate → polish. No staged
+multi-agent workflow that has to complete before anything is scored. Fan out inside a step
+when the work is genuinely disjoint — never make the round itself a structure.
+
+Two previous runs died exactly this way: six hours, 2.4 million tokens, zero scores. Both
+times one stage ate the entire budget and nothing downstream was allowed to start. A phase
+ladder is a gate system wearing different clothes — it does not block on a measurement, so
+it looks compliant, but it blocks on completion, which no instrument here can see.
+
+The round budget is {{budgetMinutes}} minutes. Nothing stops when it passes; doctor.mjs and
+board.mjs just start telling you how long you have gone without producing a number. If you
+are over it, score what exists right now, however bad, and make the next round smaller.
+
+Keep the round-one instruments crude — capture.mjs and critic.mjs are about fifty lines each
+the first time. If you are an hour into building an instrument for a scene that has never
+been scored, you are building the wrong thing.
+
 ROUND ONE IS ONE PASS
 
 Build each subsystem once, well, and move on. Do NOT tune inside round one. No parameter
@@ -74,6 +95,12 @@ resolution; full resolution is for frames you keep.
 If the renderer is software-emulated, framerate is fiction. Report the flag, not a number,
 and tell me — that gauge stays dark and it is my decision, not a defect for you to work
 around.
+
+And when a capture is too expensive, make the CAPTURE cheaper — fewer pixels, less settle
+time. Never cheapen the build to bring a measurement down. A shadow map that costs a
+software rasterizer three minutes costs a real GPU microseconds; trading it away caps the
+artifact to suit a machine no player will ever use. If the instrument is the problem, fix
+the instrument or tell me.
 
 EVERY ROUND
 

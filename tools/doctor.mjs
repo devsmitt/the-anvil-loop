@@ -90,6 +90,18 @@ let stage, next
 const hoursOpen = state?.startedAt && !(state?.history?.length)
   ? (Date.now() - Date.parse(state.startedAt)) / 3_600_000
   : null
+
+// THE ROUND CLOCK. A round ends when a number lands on the board; this measures how long
+// it has been since one did. Two runs have burned six hours and 2.4M tokens producing zero
+// scores, both times by wrapping a round in a multi-phase pipeline. Nothing here blocks —
+// it just makes the thing that was invisible impossible to miss. See Invariant 16.
+const BUDGET_MIN = spec?.round?.budgetMinutes ?? 90
+const roundClockFrom = state?.roundStartedAt ?? state?.startedAt ?? null
+const roundMin = roundClockFrom ? (Date.now() - Date.parse(roundClockFrom)) / 60_000 : null
+const OVER = roundMin != null && roundMin > BUDGET_MIN
+const WAY_OVER = roundMin != null && roundMin > BUDGET_MIN * 1.5
+const fmtMin = (m) => (m >= 90 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m)}m`)
+
 const lastRound = state?.history?.at(-1)
 const floor = state?.noiseFloor ?? 6
 const regressed = lastRound && state
@@ -135,6 +147,23 @@ if (state?.inFlight) {
   stage = 'REGRESSION'
   next = `${regressed.map(([m]) => `"${m}"`).join(', ')} scored below its own best.\n` +
     `  This is the one rule. Stop and tell the human what changed and what you think broke it.`
+} else if (WAY_OVER) {
+  // Nothing is blocked. But at this point there is only one useful next action, so it is
+  // the only one doctor will name.
+  const needInstruments = !built('capture.mjs') || !built('critic.mjs')
+  stage = `ROUND ${(state?.round ?? 0) + 1} — OVERDUE (${fmtMin(roundMin)}, budget ${BUDGET_MIN}m)`
+  next = `${fmtMin(roundMin)} without a score on the board. Produce a number NOW — that is the whole\n` +
+    `  next action. Not a better build. A number.\n\n` +
+    (needInstruments
+      ? `  1. Write the crudest capture.mjs and critic.mjs that work. ~50 lines each, 15 minutes.\n` +
+        `     An hour spent on an instrument for a scene that has never been scored is the\n` +
+        `     wrong hour. Get a number, then earn the right to improve what produced it.\n`
+      : `  1. node tools/capture.mjs --member=${spec.primaryMember ?? '<primary>'} --out=.anvil/now.png\n`) +
+    `  2. Open the frame. Say in one line what is actually in it.\n` +
+    `  3. node tools/board.mjs --record --saw="..."   — record whatever it scores. 25 is fine.\n\n` +
+    `  If a structure is standing between you and that number — a phase ladder, a staged\n` +
+    `  workflow, a fan-out that must finish first — that structure is the bug. Invariant 16:\n` +
+    `  a round is one owner, one pass, one score. Collapse it and score what exists.`
 } else if (!built('capture.mjs') || !built('critic.mjs')) {
   stage = `ROUND ${(state?.round ?? 0) + 1} — first light`
   next = `Build the artifact. ${spec.definingFeature ? `"${spec.definingFeature}" must exist in this round, however crudely.` : ''}\n` +
@@ -168,17 +197,21 @@ if (spec) {
 if ((state?.debt ?? []).filter((d) => !d.paid).length > 6) warnings.push(`${state.debt.filter((d) => !d.paid).length} open debt items — heavy for Act ${state?.act ?? 1}`)
 if (hoursOpen != null && hoursOpen >= 2) warnings.push(`round one has been open ${hoursOpen.toFixed(1)}h and no score has been recorded — score it low rather than improving it further (Invariant 13)`)
 if (spec && !spec.build?.command) warnings.push('no build.command in the spec — nothing verifies the product still builds after an interrupted run')
+if (OVER && !WAY_OVER) warnings.push(`${fmtMin(roundMin)} since the last recorded score, against a ${BUDGET_MIN}m round budget — a round ends when a number lands on the board, not when the work feels done (Invariant 16)`)
 
 const fatal = checks.some((c) => !c.ok && c.fatal)
 
 if (JSON_OUT) {
-  console.log(JSON.stringify({ ok: !fatal, stage, next, checks, warnings, nextInstrument: nextInstrument?.tool ?? null, pendingInstruments: pending, act: state?.act ?? 1, round: state?.round ?? 0 }, null, 2))
+  console.log(JSON.stringify({ ok: !fatal, stage, next, checks, warnings, nextInstrument: nextInstrument?.tool ?? null, pendingInstruments: pending, act: state?.act ?? 1, round: state?.round ?? 0, roundMinutes: roundMin == null ? null : Math.round(roundMin), roundBudgetMinutes: BUDGET_MIN, overdue: WAY_OVER }, null, 2))
   process.exit(fatal ? 1 : 0)
 }
 
 console.log(`\n  THE ANVIL LOOP — doctor\n`)
 for (const c of checks) console.log(`  ${c.ok ? 'OK  ' : 'FAIL'}  ${String(c.name).padEnd(20)}${c.detail}`)
 console.log(`\n  ${spec?.project ? `${spec.project} · ` : ''}${stage}`)
+if (spec && roundMin != null && !WAY_OVER) {
+  console.log(`  round clock: ${fmtMin(roundMin)} since the last score${OVER ? `  ·  OVER the ${BUDGET_MIN}m budget` : `  ·  budget ${BUDGET_MIN}m`}`)
+}
 if (spec) {
   const b = LADDER.filter((l) => built(l.tool)).length
   console.log(`  instruments: ${b}/${LADDER.length} built${pending.length ? `  ·  on demand, not up front` : ''}`)

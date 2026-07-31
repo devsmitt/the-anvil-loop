@@ -15,6 +15,11 @@
 
   "act": 1,
 
+  "round": {
+    "$comment": "A round ends when a number lands on the board. This is NOT a deadline and nothing stops when it passes — doctor.mjs and board.mjs simply start reporting how long the loop has gone without producing a score. A round that cannot score inside the budget is not a long round, it is a pipeline. 90 is a good default; raise it only if a single capture genuinely costs many minutes.",
+    "budgetMinutes": 90
+  },
+
   "build": {
     "$comment": "How the product is built, as a command that exits 0. doctor.mjs runs this when it finds an interrupted run: a process killed mid-edit leaves source that no longer parses, and an hour spent measuring a broken build looks exactly like an hour of work.",
     "command": "{{e.g. node tools/bundle.mjs — must exit non-zero if the product will not build}}",

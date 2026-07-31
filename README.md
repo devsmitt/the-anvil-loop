@@ -78,6 +78,9 @@ because everything else turns out to be a brake.
 - **Round one is one pass.** Build it once, score it low, let the loop do the tuning. An
   agent that hand-tunes a material for ninety minutes before the first score has
   reimplemented this repo badly — no ratchet, no critic, no number you can see.
+- **A round is not a pipeline.** One owner, one pass, one score. The round clock reports how
+  long you've gone without a number on the board — because the most expensive failure here
+  is an agent wrapping a round in phases, where the score moves to the end and never arrives.
 - **Measurement has to be affordable.** Captures serialize and iterate small. One run spent
   three hours reasoning from an 11-minute frame that turned out to be contention, not
   resolution.
@@ -98,7 +101,7 @@ because everything else turns out to be a brake.
 | | |
 |---|---|
 | `AGENTS.md` | the operating manual every agent reads |
-| `METHOD.md` | fourteen invariants, and the one rule |
+| `METHOD.md` | sixteen invariants, and the one rule |
 | `TOOLS.md` | instrument contracts, and when to build each |
 | `DEFINE.md` | the opening conversation |
 | `EXAMPLES.md` | worked derivations across seven genres |

@@ -235,6 +235,9 @@ if (has('record')) {
     }
   }
 
+  // A round ends when a number lands on the board. Restart the clock for the next one.
+  state.roundStartedAt = new Date().toISOString()
+
   save()
   if (drops.length) regression = { drops, floor }
 }
@@ -330,6 +333,16 @@ const gaugeRows = (state.gaugeHistory.at(-1)?.gauges) ?? (spec.gauges ?? []).map
 
 const openDebt = (state.debt ?? []).filter((d) => !d.paid)
 
+/* --- the round clock -------------------------------------------------------- */
+// A round ends when a number lands on the board. This measures how long it has been since
+// one did. It does not block. It exists because two runs burned six hours and 2.4M tokens
+// producing zero scores, and no instrument in this repo could see it happening.
+const BUDGET_MIN = spec.round?.budgetMinutes ?? 90
+const clockFrom = state.roundStartedAt ?? state.startedAt ?? null
+const roundMin = clockFrom ? (Date.now() - Date.parse(clockFrom)) / 60_000 : null
+const overBudget = roundMin != null && roundMin > BUDGET_MIN
+const fmtMin = (m) => (m >= 90 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m)}m`)
+
 /* ---------------------------------------------------------------- output --- */
 
 const payload = {
@@ -350,6 +363,9 @@ const payload = {
   debt: openDebt.length,
   regression,
   saw: last?.saw ?? null,
+  roundMinutes: roundMin == null ? null : Math.round(roundMin),
+  roundBudgetMinutes: BUDGET_MIN,
+  overBudget,
 }
 
 if (JSON_OUT) {
@@ -360,7 +376,17 @@ if (JSON_OUT) {
 const pad = (s, n) => String(s).padEnd(n)
 const num = (v, n = 6) => String(v ?? '—').padStart(n)
 
-console.log(`\n  ${spec.project ?? 'project'} · Act ${state.act ?? 1} · round ${state.round ?? 0}\n`)
+console.log(`\n  ${spec.project ?? 'project'} · Act ${state.act ?? 1} · round ${state.round ?? 0}`)
+if (roundMin != null) console.log(`  ${fmtMin(roundMin)} since the last recorded score  ·  round budget ${BUDGET_MIN}m${overBudget ? '   ** OVER **' : ''}`)
+console.log('')
+
+if (overBudget && !has('record')) {
+  console.log(`  !! ${fmtMin(roundMin)} without a number on the board.`)
+  console.log(`     A round is one owner, one pass, one score — not a structure that has to finish`)
+  console.log(`     before anything gets measured. If a phase ladder or a staged workflow is`)
+  console.log(`     standing between you and a score, that is the bug (Invariant 16).`)
+  console.log(`     Score what exists right now, however bad, and make the next round smaller.\n`)
+}
 
 if (spec.fidelity) {
   console.log(`  FIDELITY   ${spec.fidelity.id ?? 'fidelity'}   target ${target ?? '—'}${notch && (state.act ?? 1) < 2 ? `   ·   act notch ${notch}` : ''}`)

@@ -197,6 +197,61 @@ Three consequences, all cheap:
 - **Know your renderer.** If the GPU is software-emulated, framerate is fiction. Report the
   flag, not the number.
 
+### 15 — Never tune the artifact to suit the instrument
+
+When a measurement becomes expensive or awkward, make the **measurement** cheaper. Never
+make the build worse.
+
+*Why:* a run measuring on a software rasterizer found captures costing minutes and concluded
+it should cut shader cost to bring them down. But a shadow map that costs a CPU rasterizer
+three minutes costs a real GPU a fraction of a millisecond. The expense was a property of the
+measuring rig, not of the build — and the "fix" would have permanently capped the artifact to
+suit a machine no player will ever use. This is the previous invariant arrived at from the
+wrong end, and it is the more dangerous mistake of the two: an unaffordable reading costs
+hours, a cheapened build costs the ceiling.
+
+Every legitimate move is on the instrument's side: fewer pixels, less settle time, fewer
+frames, a faster machine. If none of them are enough, that is a conversation with the human
+about where this run should live. It is not a licence to cheapen the thing being built.
+
+The obvious cases are the same rule: never edit a shipped program to pass, never raise the
+noise floor to dodge the ratchet, never narrow the coverage axis because the sweep is slow.
+If the instrument is the problem, fix the instrument or say so out loud.
+
+### 16 — A round is not a pipeline
+
+**One owner, one pass, one score.** A round ends when a number lands on the board. Nothing
+may sit between the start of a round and that number.
+
+You may fan out *inside* a step — two agents on genuinely disjoint work, a sub-agent to
+review — and you should. What you may not do is make the round itself a structure that has
+to complete before anything is scored: no phase ladder, no staged pipeline, no
+foundation-then-cluster-then-integrate-then-polish. The moment a round has named phases, the
+score moved to the end, and the loop stopped being a loop.
+
+*Why:* this is the most expensive failure this framework has recorded, and it has happened
+twice. Two runs, six hours, 2.4 million tokens, **zero scores.** Both times an agent wrapped
+round one in a five-phase multi-agent workflow. Both times a single stage — materials —
+consumed the entire budget tuning constants nobody could see, because nothing downstream was
+allowed to start and nothing upstream was allowed to finish. The second run re-ran that stage
+from scratch and paid for it again.
+
+Read that against Invariant 2 and the shape is clear: a phase ladder is the gate system in
+different clothes. It does not block on a *measurement*, so it looks compliant. It blocks on
+*completion*, which is worse, because no instrument in this repo can see it.
+
+**The round budget makes it visible.** `round.budgetMinutes` (default 90) is not a deadline
+and nothing stops when it passes — `doctor.mjs` and `board.mjs` simply start saying how long
+you have gone without producing a number, and at 1.5× they say only that. A round that cannot
+produce a score in ninety minutes is not a long round. It is a pipeline, and the fix is to
+score what exists right now, however bad, and make the next round smaller.
+
+**Round-one instruments are crude on purpose.** `capture.mjs` and `critic.mjs` are perhaps
+fifty lines each the first time. One run spent an hour and five minutes building a capture
+tool for a scene it had not scored once. If you are an hour into an instrument, you are
+building the wrong thing — get a number, then earn the right to improve the thing that
+produced it.
+
 ---
 
 ## Two acts, not phases
