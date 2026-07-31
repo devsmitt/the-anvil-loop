@@ -128,6 +128,19 @@ fetch late and you find out at the end.
 **The coupled cluster.** Which subsystems are secretly one system. Naming it is mandatory —
 without it, "one owner at a time" has nothing to apply to.
 
+**The build command.** One command that exits 0 when the product builds and non-zero when
+it doesn't, written into `build.command`. This is what `doctor.mjs` runs after an
+interrupted session, and it is the difference between resuming and spending an hour
+measuring source that no longer parses. Settle it now — the architecture is being decided
+in this conversation, so it costs a sentence here and an investigation later.
+
+**What a frame will cost.** Ask what they are running on. If the build renders headless in
+CI or a container, expect a software rasterizer — the CPU draws every pixel, captures run
+in minutes rather than seconds, and `perf.mjs` cannot produce a framerate that means
+anything. That is worth knowing before the target is set, not at hour three. Record the
+working and full resolutions in `capture`; iterating at full resolution multiplies the only
+cost that matters.
+
 **Where bars share a root cause.** Ask explicitly. In one run, unshaded terrain broke
 beauty *and* navigability at once — the playing critic kept re-describing the same river
 because there was no surface information to tell one place from another. The spec had

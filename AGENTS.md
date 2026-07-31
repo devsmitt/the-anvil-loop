@@ -1,6 +1,6 @@
 # THE ANVIL LOOP — agent instructions
 
-Framework version 2.0.0
+Framework version 2.1.0
 
 You have been opened in a repo containing this file. Read it fully, then read `METHOD.md`.
 Both are binding.
@@ -72,6 +72,20 @@ does not exist yet and will need rewriting once it does.
 
 That scene is round one of the product. It is not scaffolding, and it never gets rebuilt.
 
+**One pass means one pass.** Build each subsystem once and move on — do not tune inside
+round one. No parameter sweeps, no walking an exposure value back and forth, no polishing a
+material until it looks right before anything has been scored. Tuning across rounds is what
+this repo is; doing it by hand before the first `--record` is the loop reimplemented badly,
+without the ratchet, the critic, or a number anyone can see. See Invariant 13.
+
+Score it early and low. A first score of 35 is the baseline the ratchet protects, and the
+critic's findings will aim round two better than any guess you make now.
+
+**Before you fan out, time one capture.** Serially, alone, nothing else running. If a frame
+costs minutes, every decision after this one is built on an instrument you cannot afford —
+fix that first. Iterate at the small resolution; full resolution is for frames you keep.
+See Invariant 14.
+
 ## Every round after
 
 ```
@@ -101,7 +115,12 @@ Invariant 7 in `METHOD.md`; `--record` will refuse without it.
    Uneven means a technique has not been applied here yet. A ceiling means the build needs
    a technique it does not have.
 6. **The coupled cluster gets one owner at a time.** Parallel agents there break each
-   other's assumptions while all of them report success. Fan out freely elsewhere.
+   other's assumptions while all of them report success. Fan out freely elsewhere — but
+   **claim the fan-out before you launch it.** A workflow or squad is one claimed task,
+   opened before the first agent starts and closed after the last returns. An unclaimed
+   fan-out that dies three hours in leaves `doctor.mjs` reporting a clean slate.
+   And edits to source inside a claimed task must survive a kill: write through a temp file
+   or keep a backup. A process killed mid-`replace` leaves a build that will not parse.
 7. **Critics never see your reasoning.** Goal, rules, scale, artifact. Nothing else.
 8. **No report without an artifact.** A score, a frame, a trace, a log. "Improved the
    lighting" is not one. Applies to your own reports.
@@ -111,6 +130,11 @@ Invariant 7 in `METHOD.md`; `--record` will refuse without it.
 10. **You may sharpen methods.** Log amendments with `--amend`. You may not loosen the
     ratchet, raise the noise floor to dodge it, or edit a shipped program to pass. If a
     target is wrong, stop and say so.
+11. **Measure what measuring costs.** Captures run one at a time through a lock, never
+    concurrently — on a software rasterizer, parallel captures are slower than serial ones
+    and the difference reads as "resolution is expensive" when it is contention. Iterate at
+    the working resolution; save full resolution for frames you keep. If the renderer is
+    software-emulated, framerate is fiction: report the flag, not the number.
 
 ## Stopping
 
@@ -132,12 +156,16 @@ node tools/doctor.mjs
 If it prints **INTERRUPTED**, the previous session was killed mid-task:
 
 1. The IN FLIGHT task is where it died.
-2. **Verify what actually landed.** A killed process leaves partial work — half-written
-   files, a tool that no longer parses, a capture set missing members. Doctor flags
-   truncated `tools/*.mjs`; check the task's own outputs yourself.
-3. Redo only the incomplete part. State records what finished.
-4. `node tools/journal.mjs --end` — or `--abandon="<why>"` if it cannot be salvaged.
-5. Continue from the next action.
+2. **Verify the build still builds, before measuring anything.** Run `build.command` from
+   the spec and load the artifact. A process killed mid-edit leaves source that no longer
+   parses — and an hour spent benchmarking a broken page is indistinguishable from an hour
+   of real work until you look. Doctor runs this for you when the spec declares it.
+3. **Verify what else actually landed.** Half-written files, a tool that no longer parses,
+   a capture set missing members. Doctor flags truncated `tools/*.mjs`; check the task's own
+   outputs yourself.
+4. Redo only the incomplete part. State records what finished.
+5. `node tools/journal.mjs --end` — or `--abandon="<why>"` if it cannot be salvaged.
+6. Continue from the next action.
 
 If it prints **REGRESSION**, do not continue. See the one rule.
 

@@ -152,6 +152,51 @@ result, never an empty one.
 `PROGRESS.md` and `.anvil/` are the memory. Claim work before starting it; close the claim
 after. An open claim is how the next session knows a run was killed and where.
 
+**Claim before you fan out, not before you type.** A parallel launch — a workflow, a squad
+of sub-agents — is one claimed task, opened before the first agent starts and closed after
+the last one returns. A fan-out with no claim is invisible to the resume path: the run dies
+three hours in and `doctor.mjs` reports a clean slate.
+
+### 13 — Round one is one pass
+
+Build each subsystem once, at real quality, and move on. **Do not tune inside round one.**
+No parameter sweeps, no A/B on exposure values, no walking a material back and forth until
+it looks right before anything has been scored.
+
+*Why:* tuning across rounds is what this repo *is*. An agent that spends ninety minutes in
+round one moving `exposure` from 0.86 to 0.95 one value at a time — rebuild, capture, look,
+repeat — has reimplemented this loop by hand: without the ratchet, without a blind critic,
+without memory, and without a number anyone else can see. It is the loop's own job, done
+worse, before the loop has started.
+
+A first score of 35 is not a failure. It is the baseline the ratchet then protects, and the
+findings that come back beside it aim the next round better than any guess made before the
+first review. **The fastest route to a beautiful build is a mediocre one, scored early.**
+
+The tell: repeated small edits to the same constants, each followed by a rebuild and a
+capture, with no `--record` between them. If you are about to change one number and look
+again, record the round instead.
+
+### 14 — A reading you cannot afford is not a reading
+
+An instrument that costs minutes per sample changes the loop's behaviour whether or not
+anyone decided it should. Measure what your measurement costs before you build anything on
+top of it — and measure it **serially, once, with nothing else running.**
+
+*Why:* one run clocked a capture at 11 minutes and an identical capture at 12 seconds, and
+concluded the difference was resolution. It was contention. Under a software rasterizer
+every capture saturates every core, so two captures in parallel are slower than the same
+two run back to back — and an agent that fans out across eight members is not measuring
+eight times, it is thrashing. Three hours went to that before anyone timed a single frame.
+
+Three consequences, all cheap:
+
+- **Captures serialize.** One at a time, through a lock. Never concurrently.
+- **Iterate at the small resolution.** Full resolution is for the frame you keep, not the
+  hundreds you throw away. A critic does not score more accurately at 1080p.
+- **Know your renderer.** If the GPU is software-emulated, framerate is fiction. Report the
+  flag, not the number.
+
 ---
 
 ## Two acts, not phases

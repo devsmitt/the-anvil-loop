@@ -15,6 +15,18 @@
 
   "act": 1,
 
+  "build": {
+    "$comment": "How the product is built, as a command that exits 0. doctor.mjs runs this when it finds an interrupted run: a process killed mid-edit leaves source that no longer parses, and an hour spent measuring a broken build looks exactly like an hour of work.",
+    "command": "{{e.g. node tools/bundle.mjs — must exit non-zero if the product will not build}}",
+    "timeoutMs": 300000
+  },
+
+  "capture": {
+    "$comment": "What a frame costs. Iterate at working resolution; full is for frames you keep. Captures serialize — on a software rasterizer, parallel captures are SLOWER than serial ones, and the timings blame resolution for what is contention.",
+    "workingResolution": [960, 540],
+    "fullResolution": [1920, 1080]
+  },
+
   "reference": {
     "$comment": "The bar. Frozen so it cannot move between rounds. artifact > sourced > model-prior.",
     "mode": "{{artifact | sourced | model-prior}}",

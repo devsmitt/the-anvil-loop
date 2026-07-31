@@ -85,6 +85,11 @@ const pending = spec ? LADDER.filter((l) => !built(l.tool)).map((l) => l.tool) :
 /* --- stage ----------------------------------------------------------------- */
 
 let stage, next
+// How long the run has been open with nothing scored. The most expensive habit this
+// framework has seen is improving round one for hours instead of recording it.
+const hoursOpen = state?.startedAt && !(state?.history?.length)
+  ? (Date.now() - Date.parse(state.startedAt)) / 3_600_000
+  : null
 const lastRound = state?.history?.at(-1)
 const floor = state?.noiseFloor ?? 6
 const regressed = lastRound && state
@@ -92,11 +97,34 @@ const regressed = lastRound && state
       typeof s === 'number' && typeof state.best?.[m] === 'number' && s < state.best[m] - floor)
   : []
 
+// After a kill, the first question is not "where was I" but "does the product still
+// build". A process killed mid-edit leaves source that no longer parses, and an hour spent
+// measuring a broken build is indistinguishable from an hour of work until you look.
+let buildCheck = null
+if (state?.inFlight && spec?.build?.command) {
+  try {
+    execSync(spec.build.command, { encoding: 'utf8', stdio: 'ignore', timeout: spec.build.timeoutMs ?? 300_000 })
+    buildCheck = { ok: true }
+  } catch (e) {
+    buildCheck = { ok: false, detail: String(e.message).split('\n')[0].slice(0, 120) }
+  }
+  add('product builds', buildCheck.ok, buildCheck.ok ? spec.build.command : `${buildCheck.detail} — killed mid-edit; repair before measuring anything`)
+}
+
 if (state?.inFlight) {
   stage = 'INTERRUPTED'
-  next = `Resume "${state.inFlight.task}" (claimed ${state.inFlight.startedAt}).\n` +
-    `  Verify what actually landed on disk first — a killed process leaves partial work.\n` +
-    `  Then close it:  node tools/journal.mjs --end`
+  next = buildCheck && !buildCheck.ok
+    ? `The product does not build. Repair it before anything else — a killed process leaves\n` +
+      `  source that no longer parses, and every measurement taken from here is about the break.\n` +
+      `    ${spec.build.command}\n` +
+      `  Then resume "${state.inFlight.task}" (claimed ${state.inFlight.startedAt}).`
+    : `Resume "${state.inFlight.task}" (claimed ${state.inFlight.startedAt}).\n` +
+      (spec?.build?.command
+        ? `  Build verified.`
+        : `  No build.command in the spec — verify by hand that the product still builds and loads\n` +
+          `  before you measure anything, then add build.command so this is checked for you.`) + `\n` +
+      `  Verify what else actually landed on disk — a killed process leaves partial work.\n` +
+      `  Then close it:  node tools/journal.mjs --end`
 } else if (badJson.some((b) => b.startsWith('anvil.json'))) {
   stage = 'SPEC CORRUPT'
   next = 'anvil.json exists but does not parse. Repair it from git history.\n  Do NOT re-run the definition conversation — that rewrites the contract this run is judged by.'
@@ -111,7 +139,15 @@ if (state?.inFlight) {
   stage = `ROUND ${(state?.round ?? 0) + 1} — first light`
   next = `Build the artifact. ${spec.definingFeature ? `"${spec.definingFeature}" must exist in this round, however crudely.` : ''}\n` +
     `  Then build capture.mjs and critic.mjs — the two you cannot climb without — and score it.\n` +
-    `  NO other instruments. They measure things that do not exist yet.`
+    `  NO other instruments. They measure things that do not exist yet.\n` +
+    `  ONE PASS. Do not tune before the first score — that is the loop's job, and doing it\n` +
+    `  by hand costs hours and produces no number anyone can see. See Invariant 13.` +
+    (hoursOpen != null && hoursOpen >= 2
+      ? `\n\n  !! Round one has been open ${hoursOpen.toFixed(1)}h with nothing recorded.\n` +
+        `     Capture what exists, score it, record it — even at 30. A low first score is the\n` +
+        `     baseline the ratchet protects, and its findings aim the next round better than\n` +
+        `     anything you can decide from here.`
+      : '')
 } else {
   stage = `Act ${state?.act ?? 1} · round ${(state?.round ?? 0) + 1}`
   next = state?.nextAction ||
@@ -130,6 +166,8 @@ if (spec) {
   if (!spec.reference?.mode) warnings.push('no reference mode — the bar is not pinned to anything external')
 }
 if ((state?.debt ?? []).filter((d) => !d.paid).length > 6) warnings.push(`${state.debt.filter((d) => !d.paid).length} open debt items — heavy for Act ${state?.act ?? 1}`)
+if (hoursOpen != null && hoursOpen >= 2) warnings.push(`round one has been open ${hoursOpen.toFixed(1)}h and no score has been recorded — score it low rather than improving it further (Invariant 13)`)
+if (spec && !spec.build?.command) warnings.push('no build.command in the spec — nothing verifies the product still builds after an interrupted run')
 
 const fatal = checks.some((c) => !c.ok && c.fatal)
 

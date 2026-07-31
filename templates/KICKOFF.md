@@ -47,6 +47,34 @@ Make {{PROJECT}} look and feel closer to that target. Every round. That is the w
 Round one builds the artifact — and {{definingFeature}} exists in it, however crudely.
 Not a greybox, not a harness, not a plan. The thing.
 
+ROUND ONE IS ONE PASS
+
+Build each subsystem once, well, and move on. Do NOT tune inside round one. No parameter
+sweeps, no walking an exposure value up and down, no polishing a material until it looks
+right before anything has been scored.
+
+Tuning across rounds is the entire point of this loop. Doing it by hand before the first
+score is the loop reimplemented badly — no ratchet, no blind critic, no memory, and no
+number I can see. A first score of 35 is not a failure; it is the baseline the ratchet
+protects, and the findings beside it aim round two better than any guess you make now.
+
+If you are about to change one number and look at the frame again, record the round
+instead.
+
+MEASUREMENT HAS TO BE CHEAP
+
+Before you fan out to anything, time ONE capture — serially, alone, nothing else running.
+Write the number down.
+
+Captures run one at a time through a lock. Never two at once: on a software rasterizer
+every capture saturates every core, so parallel captures are slower than serial ones, and
+the timings blame resolution for what is actually contention. Iterate at the working
+resolution; full resolution is for frames you keep.
+
+If the renderer is software-emulated, framerate is fiction. Report the flag, not a number,
+and tell me — that gauge stays dark and it is my decision, not a defect for you to work
+around.
+
 EVERY ROUND
 
   1. node tools/doctor.mjs                 where you are, what to build next
@@ -107,7 +135,9 @@ debt, and turn on the mechanical bars.
 
 {{The coupled cluster}} is one system — work it with one owner at a time. Parallel agents
 there break each other's assumptions while all of them report success. Fan out freely on
-genuinely disjoint work.
+genuinely disjoint work — but claim the fan-out with journal.mjs --begin BEFORE launching
+it, and close it after the last agent returns. An unclaimed fan-out that dies three hours
+in leaves nothing on disk saying it ever ran.
 
 WHEN A ROUND DOESN'T MOVE IT
 

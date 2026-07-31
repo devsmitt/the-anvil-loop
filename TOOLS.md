@@ -19,7 +19,14 @@ Orientation. Runs on a bare clone: environment, framework integrity, truncated f
 killed run leaves them), the stage, and **which instrument is worth building now**.
 
 Detects **INTERRUPTED** — an open claim means the last session died mid-task, and doctor
-names the task so you resume there instead of guessing.
+names the task so you resume there instead of guessing. When the spec declares
+`build.command`, doctor runs it on an interrupted resume and refuses to hand you a next
+action until the product builds: a process killed mid-edit leaves source that no longer
+parses, and an hour spent measuring a broken build looks exactly like an hour of work.
+
+Also keeps **the first-light clock**. If round one has been open for hours with no score
+recorded, doctor says so. Not a gate — a nudge, because the most common way to lose a day
+here is to keep improving round one instead of scoring it (Invariant 13).
 
 ### `tools/board.mjs`
 The readout, and the heart of the loop.
@@ -100,10 +107,31 @@ output above it is fine.
 
 #### `tools/capture.mjs`
 ```
-node tools/capture.mjs --member=<id> --out=<path>
+node tools/capture.mjs --member=<id> --out=<path> [--full] [--json]
+→ { "ms": 11840, "width": 960, "height": 540,
+    "renderer": "ANGLE (SwiftShader Device)", "softwareRasterizer": true }
 ```
 Renders one member. Pins whatever sources of nondeterminism you have pinned so far — total
 determinism is not required yet, it is a dial you tighten when you want a sharper ratchet.
+
+**Four requirements, and every one of them is a bill someone already paid:**
+
+- **It serializes.** Take a lock; if another capture holds it, wait. Never render two at
+  once. On a software rasterizer each capture saturates every core, so concurrent captures
+  are *slower* than the same captures run back to back — and the resulting timings blame
+  resolution for what is contention. One run lost three hours to this, and the number it
+  was reasoning from (11 minutes a frame) was an artifact of the measurement.
+- **It defaults to a working resolution**, something like 960×540. `--full` is for the
+  frames you keep — the hero shot, the final scored frame. A critic does not review more
+  accurately at 1080p, and full-res iteration multiplies the only cost that matters.
+- **It has a hard timeout and fails loudly.** A capture that hangs looks exactly like a
+  capture that is working, and the loop will wait on it indefinitely.
+- **It reports the renderer.** `softwareRasterizer: true` is the flag that tells `perf.mjs`
+  its framerate is fiction and tells the lead why every frame is expensive.
+
+`ms` is not decoration. Invariant 14: an instrument you cannot afford changes the loop's
+behaviour whether or not anyone decided it should. Time one capture, serially, alone,
+before building anything on top of it.
 
 #### `tools/critic.mjs`
 Scores one member against the frozen reference, blind.
@@ -166,9 +194,10 @@ exists to provide.
 #### `tools/perf.mjs` — as you approach the budget
 ```
 node tools/perf.mjs --json
-→ { "p50fps": 61, "p99fps": 34, "gpuTimed": true, "inMotion": true, "runs": 2 }
+→ { "p50fps": 61, "p99fps": 34, "gpuTimed": true, "inMotion": true, "runs": 2,
+    "softwareRasterizer": false }
 ```
-Three flags, each standing for a measured disaster:
+Four flags, each standing for a measured disaster:
 
 - **`gpuTimed`** — CPU submission time is not frame time. One run reported 1000fps for a
   174fps scene; another read 0.9ms where the GPU took 16.1ms. Both flattering, both silent,
@@ -176,6 +205,12 @@ Three flags, each standing for a measured disaster:
 - **`inMotion`** — a static camera reports a passing number for a build that stutters.
 - **`runs ≥ 2`, fresh processes** — tail latency swung 2.5× between identical runs on the
   same machine.
+- **`softwareRasterizer`** — headless environments routinely fall back to SwiftShader or
+  llvmpipe, where the CPU draws every pixel. **When this is true, do not report a
+  framerate.** Set `p50fps: null`, set the flag, and say so. A number from a software
+  rasterizer bears no relationship to the machine a human will play on, and it is worse
+  than no number because it looks like one. Tell the human the framerate gauge is dark
+  until the run has a real GPU — that is a decision they own, not a defect you work around.
 
 #### `tools/player.mjs` — when the artifact is operable
 An **agent**, not a heuristic. One run spent four iterations hand-tuning a pixel navigator
@@ -242,4 +277,9 @@ Each of these traces to a specific failure that cost real hours.
 | The critic softens over time | `anchor.mjs` + `--falsify` |
 | A round is recorded without anyone looking | `--saw` |
 | A run killed mid-task loses or repeats work | `--begin` / `--end` |
+| A parallel fan-out dying with no resume anchor | claim before you launch, not before you type |
 | Correctness work derailing the climb | the debt ledger |
+| Round one tuning by hand for hours instead of scoring | Invariant 13; doctor's first-light clock |
+| Captures thrashing each other and blaming resolution | the capture lock, and `ms` in the capture contract |
+| A framerate reported off a software rasterizer | `softwareRasterizer` |
+| An hour spent benchmarking a build that no longer parses | `build.command`, run by doctor after an interruption |

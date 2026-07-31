@@ -57,16 +57,40 @@ const member = spec.primaryMember ?? 'primary'
 /* --- capture ---------------------------------------------------------------- */
 
 if (!built('capture.mjs')) add('capture', 'absent', 'not built yet')
-else if (!built('diff.mjs')) add('capture', 'unproven', 'no diff.mjs, so reproducibility is unmeasured — the ratchet noise floor stays wide')
 else {
+  const notes = []
+  let costMs = null
+  // Cost first, and serially. Invariant 14: an instrument you cannot afford changes the
+  // loop's behaviour whether or not anyone decided it should. One run spent three hours
+  // reasoning from an 11-minute frame that was contention, not resolution.
   try {
-    run(`node tools/capture.mjs --member=${member} --out=.anvil/probe-a.png`)
-    run(`node tools/capture.mjs --member=${member} --out=.anvil/probe-b.png`)
-    const d = lastJson(run(`node tools/diff.mjs .anvil/probe-a.png .anvil/probe-b.png --json`))
-    const moved = d?.differingPixels ?? d?.diff ?? d?.pixels
-    if (typeof moved !== 'number') add('capture', 'unproven', 'diff.mjs did not report a pixel count')
-    else if (moved === 0) add('capture', 'proven', 'two runs bit-identical — tighten the ratchet with --calibrate')
-    else add('capture', 'noisy', `${moved} pixels differ between two identical runs — every score carries that much jitter`)
+    const t0 = Date.now()
+    const out = run(`node tools/capture.mjs --member=${member} --out=.anvil/probe-a.png --json`)
+    costMs = Date.now() - t0
+    const c = lastJson(out)
+    if (c?.softwareRasterizer === true) {
+      notes.push(`software rasterizer (${c.renderer ?? 'unnamed'}) — the CPU is drawing every pixel, so captures are expensive and any framerate is fiction`)
+    } else if (c == null || c.renderer == null) {
+      notes.push('reports no renderer — nothing distinguishes a real GPU from a software rasterizer, and the difference decides whether perf numbers mean anything')
+    }
+    if (c && typeof c.width === 'number' && c.width > 1280) {
+      notes.push(`iterating at ${c.width}×${c.height ?? '?'} — full resolution is for frames you keep; a critic does not score more accurately at 1080p`)
+    }
+    if (costMs > 120_000) notes.push(`${(costMs / 1000).toFixed(0)}s per frame, measured serially — at this cost the loop cannot afford to look, and everything downstream inherits it`)
+    else if (costMs > 30_000) notes.push(`${(costMs / 1000).toFixed(0)}s per frame — workable, but check nothing else was rendering; concurrent captures are slower than serial ones`)
+
+    // Reproducibility, only once there is something to compare with.
+    if (!built('diff.mjs')) {
+      notes.push('no diff.mjs, so reproducibility is unmeasured — the ratchet noise floor stays wide')
+    } else {
+      run(`node tools/capture.mjs --member=${member} --out=.anvil/probe-b.png --json`)
+      const d = lastJson(run(`node tools/diff.mjs .anvil/probe-a.png .anvil/probe-b.png --json`))
+      const moved = d?.differingPixels ?? d?.diff ?? d?.pixels
+      if (typeof moved !== 'number') notes.push('diff.mjs did not report a pixel count')
+      else if (moved > 0) notes.push(`${moved} pixels differ between two identical runs — every score carries that much jitter`)
+    }
+    const trust = notes.length ? (notes.some((n) => n.includes('differ')) ? 'noisy' : 'unproven') : 'proven'
+    add('capture', trust, notes.length ? notes.join('; ') : `${(costMs / 1000).toFixed(1)}s/frame, real GPU, two runs bit-identical — tighten the ratchet with --calibrate`)
   } catch (e) { add('capture', 'unproven', `probe failed: ${String(e.message).split('\n')[0].slice(0, 80)}`) }
 }
 
@@ -173,14 +197,21 @@ else {
   try {
     const p = lastJson(run(`node tools/perf.mjs --json`))
     const notes = []
-    if (!p) notes.push('emitted no JSON')
-    else {
+    if (!p) {
+      add('perf', 'unproven', 'emitted no JSON')
+    } else if (p.softwareRasterizer === true) {
+      // A number off SwiftShader/llvmpipe bears no relation to the machine a human will
+      // play on, and it is worse than no number because it looks like one.
+      if (p.p50fps != null) add('perf', 'broken', 'reports a framerate from a software rasterizer — the CPU is drawing every pixel, so this number describes nothing a player will ever experience. Set p50fps to null, keep the flag, and tell the human the gauge is dark until the run has a real GPU.')
+      else add('perf', 'built', "software rasterizer detected and the framerate correctly withheld — this gauge stays dark until the run has a real GPU, which is the human's decision, not a defect to work around")
+    } else {
       // 18x error in one run, 5.7x in another. Both flattering. Both silent.
       if (p.gpuTimed !== true) notes.push('does not report gpuTimed:true — CPU submission time is not frame time, and the error is flattering by up to 18x')
       if (p.inMotion !== true) notes.push('does not report inMotion:true — a static camera reports a passing number for a build that stutters')
       if (p.runs != null && p.runs < 2) notes.push('single run — tail latency swings enough between identical runs to invert a decision')
+      if (p.softwareRasterizer == null) notes.push('does not report softwareRasterizer — headless environments fall back to SwiftShader routinely, and nothing here would notice')
+      add('perf', notes.length ? 'unproven' : 'proven', notes.length ? notes.join('; ') : `gpu-timed, in motion, ${p.runs} runs`)
     }
-    add('perf', notes.length ? 'unproven' : 'proven', notes.length ? notes.join('; ') : `gpu-timed, in motion, ${p.runs} runs`)
   } catch (e) { add('perf', 'unproven', `failed: ${String(e.message).split('\n')[0].slice(0, 80)}`) }
 }
 

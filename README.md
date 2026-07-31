@@ -75,6 +75,12 @@ because everything else turns out to be a brake.
 - **Instruments get built when their reading becomes useful** — two in round one, the rest
   on demand. Building a harness up front means building six tools to measure something
   that doesn't exist yet.
+- **Round one is one pass.** Build it once, score it low, let the loop do the tuning. An
+  agent that hand-tunes a material for ninety minutes before the first score has
+  reimplemented this repo badly — no ratchet, no critic, no number you can see.
+- **Measurement has to be affordable.** Captures serialize and iterate small. One run spent
+  three hours reasoning from an 11-minute frame that turned out to be contention, not
+  resolution.
 - **Correctness is debt** until the look clears the bar. Logged with evidence, paid later,
   never lost.
 
@@ -92,7 +98,7 @@ because everything else turns out to be a brake.
 | | |
 |---|---|
 | `AGENTS.md` | the operating manual every agent reads |
-| `METHOD.md` | twelve invariants, and the one rule |
+| `METHOD.md` | fourteen invariants, and the one rule |
 | `TOOLS.md` | instrument contracts, and when to build each |
 | `DEFINE.md` | the opening conversation |
 | `EXAMPLES.md` | worked derivations across seven genres |

@@ -38,6 +38,18 @@ if (!spec.concept) warn('no concept line — the dashboard renders blank')
 if (!spec.definingFeature)
   err('no definingFeature — nothing forces the thing that makes this *this* into round one. Runs have reached hour ten with the defining feature untouched.')
 
+/* --- the product must be buildable, checkably -------------------------------- */
+if (!spec.build?.command)
+  warn('no build.command — nothing verifies the product still builds after an interrupted run. A process killed mid-edit leaves source that will not parse, and an hour spent measuring a broken build is indistinguishable from an hour of work.')
+else if (/\{\{/.test(spec.build.command))
+  err('build.command still holds a template slot')
+
+/* --- measurement has to be affordable ---------------------------------------- */
+const wr = spec.capture?.workingResolution
+if (!wr) warn('no capture.workingResolution — nothing declares the cheap resolution to iterate at, and full-res iteration multiplies the only cost that matters')
+else if (Array.isArray(wr) && wr[0] > 1280)
+  warn(`capture.workingResolution is ${wr[0]}×${wr[1]} — that is a keep-the-frame resolution, not an iterate-at resolution. A critic does not score more accurately at 1080p.`)
+
 /* --- the climb -------------------------------------------------------------- */
 const f = spec.fidelity
 if (!f) err('no fidelity bar — the loop has nothing to climb')
